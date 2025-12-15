@@ -1,0 +1,17 @@
+/* 
+Añade/asegura en tu package.json:
+
+"scripts": {
+  "dev": "vite",
+  "build": "vite build",
+  "preview": "vite preview"
+},
+"dependencies": {
+  "resend": "^3.0.0"
+},
+"devDependencies": {
+  "@vercel/node": "^3.0.0"
+}
+
+No elimines otras dependencias que ya tengas.
+*/
