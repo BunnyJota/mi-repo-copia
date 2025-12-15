@@ -1,8 +1,27 @@
+/**
+ * Edge Function: send-email
+ * 
+ * Envía emails de confirmación, recordatorio, cancelación y reprogramación de citas.
+ * 
+ * CONFIGURACIÓN REQUERIDA (Supabase Dashboard -> Edge Functions -> Secrets):
+ * - RESEND_API_KEY: Tu API key de resend.com
+ * - APP_URL: URL de tu aplicación (ej: https://tu-app.vercel.app)
+ * 
+ * Las siguientes variables se configuran automáticamente por Supabase:
+ * - SUPABASE_URL
+ * - SUPABASE_SERVICE_ROLE_KEY
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+// Validar que RESEND_API_KEY esté configurada
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+if (!RESEND_API_KEY) {
+  console.error("⚠️ RESEND_API_KEY no está configurada. Configúrala en Supabase Dashboard -> Edge Functions -> Secrets");
+}
+
+const resend = new Resend(RESEND_API_KEY);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -373,11 +392,16 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Build URLs
-    const appUrl = Deno.env.get("APP_URL") || "https://trimly.app";
-    const confirmUrl = `${appUrl}/confirm/${confirmToken}`;
-    const cancelUrl = `${appUrl}/confirm/${cancelToken}?action=cancel`;
-    const manageUrl = `${appUrl}/m/${type === "confirmation" ? manageToken : (await supabase
+    // Build URLs - Usa la variable de entorno APP_URL
+    // Configúrala en: Supabase Dashboard -> Edge Functions -> Secrets
+    const appUrl = Deno.env.get("APP_URL");
+    if (!appUrl) {
+      console.warn("⚠️ APP_URL no está configurada. Usando URL por defecto. Configúrala en Supabase Dashboard -> Edge Functions -> Secrets");
+    }
+    const baseUrl = appUrl || "http://localhost:5173";
+    const confirmUrl = `${baseUrl}/confirm/${confirmToken}`;
+    const cancelUrl = `${baseUrl}/confirm/${cancelToken}?action=cancel`;
+    const manageUrl = `${baseUrl}/m/${type === "confirmation" ? manageToken : (await supabase
       .from("appointment_links")
       .select("token")
       .eq("appointment_id", appointmentId)
