@@ -1,0 +1,40 @@
+import { cn } from "@/lib/utils";
+import { LayoutDashboard, Calendar, ClipboardList, Users, Scissors, Settings } from "lucide-react";
+import type { DashboardTab } from "@/pages/dashboard/Dashboard";
+
+interface DashboardNavProps {
+  activeTab: DashboardTab;
+  onTabChange: (tab: DashboardTab) => void;
+}
+
+const navItems = [
+  { id: "overview" as const, label: "Inicio", icon: LayoutDashboard },
+  { id: "agenda" as const, label: "Agenda", icon: Calendar },
+  { id: "services" as const, label: "Servicios", icon: Scissors },
+  { id: "staff" as const, label: "Equipo", icon: Users },
+  { id: "settings" as const, label: "Más", icon: Settings },
+];
+
+export function DashboardNav({ activeTab, onTabChange }: DashboardNavProps) {
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background md:hidden">
+      <div className="grid h-16 grid-cols-5">
+        {navItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => onTabChange(item.id)}
+            className={cn(
+              "flex flex-col items-center justify-center gap-1 transition-colors",
+              activeTab === item.id
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <item.icon className="h-5 w-5" />
+            <span className="text-[10px] font-medium">{item.label}</span>
+          </button>
+        ))}
+      </div>
+    </nav>
+  );
+}
