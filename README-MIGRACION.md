@@ -31,3 +31,9 @@
 - Si llamabas Resend desde el navegador, ahora usa `/api/send-email`.
 - Si tienes URLs de LoveApp, cámbialas por tu dominio Vercel.
 - Subir assets estáticos a `/public` o tu storage y actualizar rutas.
+
+## Configuración Vercel (resumen)
+- Importa el repo en Vercel
+- Variables de entorno: RESEND_API_KEY, RESEND_FROM (Server); VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY (Client)
+- Build: npm run build | Output: dist | Node 18/20
+- SPA: vercel.json incluido
