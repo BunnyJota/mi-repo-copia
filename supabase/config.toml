@@ -1,4 +1,14 @@
-project_id = "hjfkfezjtbhzmjfaebaw"
+# ============================================
+# CONFIGURACIÓN DE SUPABASE
+# ============================================
+# IMPORTANTE: Reemplaza este ID con el de tu proyecto Supabase
+# Lo encuentras en: Dashboard -> Settings -> General -> Reference ID
+project_id = "TU_PROJECT_REF_AQUI"
+
+# ============================================
+# EDGE FUNCTIONS
+# ============================================
+# verify_jwt = false permite llamadas públicas (necesario para booking público)
 
 [functions.send-email]
 verify_jwt = false
