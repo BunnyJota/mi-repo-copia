@@ -72,18 +72,20 @@ export function DashboardOverview() {
       </div>
 
       {/* Booking Link Card */}
-      {bookingUrl && (
-        <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-                <Link2 className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground">Tu página de reservas</h3>
-                <p className="text-sm text-muted-foreground">Comparte este link con tus clientes</p>
-              </div>
+      <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+              <Link2 className="h-5 w-5 text-primary" />
             </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Tu página de reservas</h3>
+              <p className="text-sm text-muted-foreground">
+                Comparte este link con tus clientes
+              </p>
+            </div>
+          </div>
+          {bookingUrl ? (
             <div className="flex gap-2">
               <Input 
                 value={bookingUrl} 
@@ -111,9 +113,18 @@ export function DashboardOverview() {
                 <ExternalLink className="h-4 w-4" />
               </Button>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          ) : (
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                Configura tu barbería para generar el enlace público de reservas.
+              </p>
+              <Button variant="outline" size="sm" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+                Completar configuración
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-3">

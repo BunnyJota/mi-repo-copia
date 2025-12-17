@@ -22,6 +22,7 @@ const Register = () => {
   const [slug, setSlug] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
   const { signUp } = useAuth();
   const navigate = useNavigate();
 
@@ -72,11 +73,23 @@ const Register = () => {
     
     if (signUpError) {
       setLoading(false);
+      console.error("Sign up error:", signUpError);
       if (signUpError.message.includes("already registered")) {
         toast.error("Este email ya está registrado");
       } else {
         toast.error(signUpError.message);
       }
+      return;
+    }
+
+    // Verifica si Supabase exige confirmación por email: si no hay sesión, detenemos el flujo
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      setNeedsEmailVerification(true);
+      setLoading(false);
+      toast("Revisa tu correo", {
+        description: "Te enviamos un enlace para confirmar tu cuenta. Luego inicia sesión.",
+      });
       return;
     }
 
@@ -104,6 +117,7 @@ const Register = () => {
 
     if (barbershopError) {
       setLoading(false);
+      console.error("Barbershop insert error:", barbershopError);
       if (barbershopError.message.includes("duplicate")) {
         toast.error("Este nombre de URL ya está en uso. Elige otro.");
       } else {
@@ -183,6 +197,11 @@ const Register = () => {
                 ? "Paso 1 de 2: Datos personales"
                 : "Paso 2 de 2: Configura tu barbería"}
             </CardDescription>
+            {needsEmailVerification && (
+              <p className="mt-2 text-sm text-primary">
+                Revisa tu correo y confirma tu cuenta. Luego inicia sesión para continuar.
+              </p>
+            )}
           </CardHeader>
           <CardContent>
             {step === "user" ? (
