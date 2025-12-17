@@ -50,7 +50,7 @@ const features = [
   {
     icon: Link2,
     title: "Tu Marca, Tu Link",
-    description: "Página pública personalizada con tu logo y colores. trimly.app/tu-barberia",
+    description: "Página pública personalizada con tu logo y colores, lista para compartir.",
   },
 ];
 

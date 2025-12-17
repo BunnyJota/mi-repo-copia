@@ -2,8 +2,11 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, CalendarCheck, Users, Ban } from "lucide-react";
 import { Link } from "react-router-dom";
+import { getAppUrl } from "@/lib/utils";
 
 export function Hero() {
+  const dashboardUrl = `${getAppUrl()}/dashboard`;
+
   return (
     <section className="relative overflow-hidden bg-background pb-20 pt-32 md:pb-32 md:pt-40">
       {/* Background decoration */}
@@ -130,7 +133,7 @@ export function Hero() {
                 <div className="h-3 w-3 rounded-full bg-green-500/80" />
               </div>
               <div className="ml-4 flex-1 rounded-md bg-background/50 px-3 py-1 text-xs text-muted-foreground">
-                app.trimly.io/dashboard
+                {dashboardUrl}
               </div>
             </div>
             

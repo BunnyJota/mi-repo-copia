@@ -1,73 +1,37 @@
-# Welcome to your Lovable project
+# Mi Plataforma - Barberías
 
-## Project info
+Aplicación Vite + React + Supabase para gestionar barberías, agenda y reservas públicas.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Requisitos
+- Node.js 20+
+- Cuenta Supabase configurada con las tablas y RLS incluidas en `supabase/migrations`
+- Variables de entorno (local `.env.local`, Vercel Dashboard):
+  - `VITE_SUPABASE_URL`
+  - `VITE_SUPABASE_PUBLISHABLE_KEY`
+  - `VITE_APP_URL` (ej: `https://mi-repo-copia.vercel.app`)
 
-## How can I edit this code?
+## Scripts principales
+- `npm run dev` Inicia Vite en modo desarrollo.
+- `npm run build` Genera el build de producción.
+- `npm run preview` Sirve el build generado.
+- `npm run lint` Ejecuta ESLint.
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+## Desarrollo local
+```bash
+npm install
 npm run dev
 ```
+La app estará en `http://localhost:5173` (puerto por defecto de Vite).
 
-**Edit a file directly in GitHub**
+## Despliegue en Vercel
+1) Configura las env vars anteriores en **Vercel -> Settings -> Environment Variables**.
+2) Ajusta en Supabase Auth:
+   - **Site URL:** `https://mi-repo-copia.vercel.app`
+   - **Redirect URLs:** `https://mi-repo-copia.vercel.app/**` y `http://localhost:5173/**`
+3) Realiza `npm run build` para validar antes de desplegar.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## Flujo resumido
+- Registro/login con Supabase Auth.
+- Dashboard protegido con `ProtectedRoute`.
+- Página pública de reservas en `/b/:slug`.
+- Confirmación/gestión de citas vía tokens en `/confirm/:token` y `/m/:token`.

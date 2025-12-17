@@ -23,7 +23,7 @@ export function Logo({ size = "md", showText = true, className }: LogoProps) {
       </div>
       {showText && (
         <span className={cn("font-display font-bold tracking-tight", sizes[size].text)}>
-          trimly
+          Mi Plataforma
         </span>
       )}
     </div>

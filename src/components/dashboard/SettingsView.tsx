@@ -17,6 +17,7 @@ import { useUserData } from "@/hooks/useUserData";
 import { BarbershopSettingsDialog } from "./settings/BarbershopSettingsDialog";
 import { HoursSettingsDialog } from "./settings/HoursSettingsDialog";
 import { NotificationsSettingsDialog } from "./settings/NotificationsSettingsDialog";
+import { getAppUrl } from "@/lib/utils";
 
 import type { DashboardTab } from "@/pages/dashboard/Dashboard";
 
@@ -74,7 +75,7 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
   };
 
   const publicUrl = barbershop?.slug 
-    ? `${window.location.origin}/b/${barbershop.slug}`
+    ? `${getAppUrl()}/b/${barbershop.slug}`
     : null;
 
   return (

@@ -10,8 +10,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { getAppUrl } from "@/lib/utils";
 
 const Register = () => {
+  const basePublicBookingUrl = `${getAppUrl()}/b/`;
   const [step, setStep] = useState<"user" | "barbershop">("user");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -255,7 +257,7 @@ const Register = () => {
                   <Label htmlFor="slug">URL de reservas</Label>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">
-                      trimly.app/b/
+                      {basePublicBookingUrl}
                     </span>
                     <Input
                       id="slug"
