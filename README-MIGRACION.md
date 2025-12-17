@@ -1,4 +1,4 @@
-# Migración a Vercel (Vite + React de Lovable)
+# Migración a Vercel (Vite + React)
 
 ## Archivos incluidos
 - `vercel.json` → Rewrites para SPA + headers.
@@ -29,7 +29,7 @@
 
 ## Notas
 - Si llamabas Resend desde el navegador, ahora usa `/api/send-email`.
-- Si tienes URLs de LoveApp, cámbialas por tu dominio Vercel.
+- Si tienes URLs heredadas del entorno anterior, cámbialas por tu dominio Vercel.
 - Subir assets estáticos a `/public` o tu storage y actualizar rutas.
 
 ## Configuración Vercel (resumen)

@@ -1,4 +1,4 @@
-# 🚀 Guía de Migración: Lovable.app → Supabase + Vercel
+# 🚀 Guía de Migración: App heredada → Supabase + Vercel
 
 > **✅ El código ya está configurado.** Solo necesitas seguir estos pasos para conectar tu propia cuenta de Supabase.
 
@@ -215,7 +215,7 @@ Tu proyecto ahora está conectado a tu propia cuenta de Supabase y desplegado en
 
 **Beneficios:**
 - Control total de tu base de datos
-- Sin limitaciones de Lovable.app
+- Sin limitaciones de la plataforma anterior
 - Escalabilidad según tus necesidades
 - Costos predecibles con el plan gratuito de Supabase
 

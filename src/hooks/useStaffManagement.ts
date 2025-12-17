@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserData } from "./useUserData";
 import { toast } from "sonner";
+import { getAppUrl } from "@/lib/utils";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
 export type StaffProfile = Tables<"staff_profiles">;
@@ -69,7 +70,7 @@ export function useCreateStaff() {
         email: staff.email,
         password: staff.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/`,
+          emailRedirectTo: `${getAppUrl()}/`,
           data: {
             display_name: staff.display_name,
           },

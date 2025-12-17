@@ -21,6 +21,7 @@ import { useTodayAppointments, useAppointmentStats } from "@/hooks/useAppointmen
 import { useUserData } from "@/hooks/useUserData";
 import { useState } from "react";
 import { toast } from "sonner";
+import { getAppUrl } from "@/lib/utils";
 
 export function DashboardOverview() {
   const { profile, barbershop, loading: userLoading } = useUserData();
@@ -32,7 +33,7 @@ export function DashboardOverview() {
   
   // Build booking URL
   const bookingUrl = barbershop?.slug 
-    ? `${window.location.origin}/b/${barbershop.slug}`
+    ? `${getAppUrl()}/b/${barbershop.slug}`
     : null;
 
   const handleCopyLink = async () => {
