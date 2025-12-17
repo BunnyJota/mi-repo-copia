@@ -14,7 +14,14 @@ export function getAppUrl() {
   const normalizedEnv = envUrl?.replace(/\/$/, "");
 
   if (normalizedEnv) return normalizedEnv;
-  if (typeof window !== "undefined") return window.location.origin;
+  if (typeof window !== "undefined") {
+    const origin = window.location.origin.replace(/\/$/, "");
+    // Si el origen es un dominio heredado, forzamos el dominio actual de Vercel
+    if (origin.includes("lovable.app")) {
+      return "https://mi-repo-copia.vercel.app";
+    }
+    return origin;
+  }
 
   return "http://localhost:5173";
 }
