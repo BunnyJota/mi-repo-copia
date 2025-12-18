@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Calendar, ClipboardList, Users, Scissors, Settings } from "lucide-react";
+import { LayoutDashboard, Calendar, ClipboardList, Users, Scissors, Settings, BarChart3 } from "lucide-react";
 import type { DashboardTab } from "@/pages/dashboard/Dashboard";
 
 interface DashboardNavProps {
@@ -12,13 +12,14 @@ const navItems = [
   { id: "agenda" as const, label: "Agenda", icon: Calendar },
   { id: "services" as const, label: "Servicios", icon: Scissors },
   { id: "staff" as const, label: "Equipo", icon: Users },
+  { id: "reports" as const, label: "Reportes", icon: BarChart3 },
   { id: "settings" as const, label: "Más", icon: Settings },
 ];
 
 export function DashboardNav({ activeTab, onTabChange }: DashboardNavProps) {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background md:hidden">
-      <div className="grid h-16 grid-cols-5">
+      <div className="grid h-16 grid-cols-6">
         {navItems.map((item) => (
           <button
             key={item.id}

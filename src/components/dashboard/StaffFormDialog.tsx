@@ -23,6 +23,8 @@ import {
   useUpdateStaff,
   type StaffProfile,
 } from "@/hooks/useStaffManagement";
+import { useUserData } from "@/hooks/useUserData";
+import { toast } from "sonner";
 
 const COLOR_OPTIONS = [
   "#E45500",
@@ -65,6 +67,7 @@ export function StaffFormDialog({
 }: StaffFormDialogProps) {
   const createStaff = useCreateStaff();
   const updateStaff = useUpdateStaff();
+  const { barbershop } = useUserData();
   const isEditing = !!staff;
 
   const form = useForm<CreateStaffValues>({
@@ -100,6 +103,10 @@ export function StaffFormDialog({
 
   const onSubmit = async (values: CreateStaffValues) => {
     try {
+      if (!barbershop?.id) {
+        toast.error("Configura tu barbería antes de agregar equipo.");
+        return;
+      }
       if (isEditing && staff) {
         await updateStaff.mutateAsync({
           id: staff.id,

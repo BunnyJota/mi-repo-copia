@@ -33,7 +33,7 @@ export interface Appointment {
   }[];
 }
 
-export function useAppointments(dateFilter?: Date) {
+export function useAppointments(dateFilter?: Date, options?: { refetchInterval?: number }) {
   const { barbershop } = useUserData();
 
   return useQuery({
@@ -130,11 +130,16 @@ export function useAppointments(dateFilter?: Date) {
       })) as Appointment[];
     },
     enabled: !!barbershop?.id,
+    refetchInterval: options?.refetchInterval,
+    refetchOnWindowFocus: true, // Refetch when window regains focus
+    refetchOnReconnect: true, // Refetch when connection is restored
+    // Return empty array when disabled to avoid infinite loading
+    placeholderData: [],
   });
 }
 
-export function useTodayAppointments() {
-  return useAppointments(new Date());
+export function useTodayAppointments(options?: { refetchInterval?: number }) {
+  return useAppointments(new Date(), options);
 }
 
 export function useAppointmentStats() {
@@ -164,10 +169,10 @@ export function useAppointmentStats() {
       const monthStr = format(startOfMonth, "yyyy-MM-dd");
       const monthStart = formatInTimeZone(new Date(`${monthStr}T00:00:00`), timezone, "yyyy-MM-dd'T'HH:mm:ssXXX");
 
-      // Today's appointments
-      const { count: todayCount } = await supabase
+      // Today's appointments with full data
+      const { data: todayAppointments } = await supabase
         .from("appointments")
-        .select("*", { count: "exact", head: true })
+        .select("id, client_id, status, total_price_estimated, payment_status, payment_amount")
         .eq("barbershop_id", barbershop.id)
         .gte("start_at", todayStart)
         .lte("start_at", todayEnd)
@@ -195,12 +200,52 @@ export function useAppointmentStats() {
         0
       );
 
+      // Calculate today's stats
+      const todayCount = todayAppointments?.length || 0;
+      const uniqueClientsToday = new Set(todayAppointments?.map((apt: any) => apt.client_id)).size;
+      
+      // Today's revenue (completed appointments)
+      const todayCompleted = todayAppointments?.filter((apt: any) => apt.status === "completed") || [];
+      const todayRevenue = todayCompleted.reduce(
+        (sum: number, apt: any) => sum + (apt.payment_amount || apt.total_price_estimated || 0),
+        0
+      );
+      
+      // Today's paid revenue
+      const todayPaidRevenue = todayCompleted
+        .filter((apt: any) => apt.payment_status === "paid")
+        .reduce((sum: number, apt: any) => sum + (apt.payment_amount || apt.total_price_estimated || 0), 0);
+      
+      // Pending appointments (not completed, not canceled)
+      const pendingCount = todayAppointments?.filter(
+        (apt: any) => apt.status !== "completed" && apt.status !== "canceled"
+      ).length || 0;
+
       return {
-        todayCount: todayCount || 0,
+        todayCount,
         weekCount: weekCount || 0,
         monthRevenue: totalRevenue,
+        // New today stats
+        uniqueClientsToday,
+        todayRevenue,
+        todayPaidRevenue,
+        pendingCount,
       };
     },
     enabled: !!barbershop?.id,
+    refetchInterval: 15000, // Refetch every 15 seconds for real-time updates (reduced from 30s)
+    refetchIntervalInBackground: true, // Continue refetching even when tab is in background
+    refetchOnWindowFocus: true, // Refetch when window regains focus
+    refetchOnReconnect: true, // Refetch when connection is restored
+    // Return default values when disabled to avoid infinite loading
+    placeholderData: {
+      todayCount: 0,
+      weekCount: 0,
+      monthRevenue: 0,
+      uniqueClientsToday: 0,
+      todayRevenue: 0,
+      todayPaidRevenue: 0,
+      pendingCount: 0,
+    },
   });
 }

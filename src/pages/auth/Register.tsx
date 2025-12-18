@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Logo } from "@/components/layout/Logo";
-import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
@@ -23,7 +22,6 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
-  const { signUp } = useAuth();
   const navigate = useNavigate();
 
   const generateSlug = (name: string) => {
@@ -69,105 +67,71 @@ const Register = () => {
     setLoading(true);
 
     // First, sign up the user
-    const { error: signUpError } = await signUp(email, password, displayName);
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${getAppUrl()}/email-confirmed`,
+        data: { display_name: displayName },
+      },
+    });
     
     if (signUpError) {
       setLoading(false);
       console.error("Sign up error:", signUpError);
-      if (signUpError.message.includes("already registered")) {
-        toast.error("Este email ya está registrado");
+      toast.error(signUpError.message);
+      return;
+    }
+
+    const userId = signUpData?.user?.id;
+    if (!userId) {
+      setLoading(false);
+      toast.error("No se pudo obtener el usuario recién creado");
+      return;
+    }
+
+    // Wait a bit for triggers to create the profile
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    // Use Supabase function to create barbershop (bypasses RLS issues)
+    const { data: barbershopId, error: functionError } = await supabase.rpc(
+      "create_barbershop_for_user",
+      {
+        _user_id: userId,
+        _barbershop_name: barbershopName,
+        _barbershop_slug: slug,
+      }
+    );
+
+    if (functionError) {
+      setLoading(false);
+      console.error("Error creating barbershop:", functionError);
+      if (functionError.message.includes("duplicate") || functionError.message.includes("unique")) {
+        toast.error("Este nombre de URL ya está en uso. Elige otro.");
       } else {
-        toast.error(signUpError.message);
+        toast.error("Error al crear la barbería: " + functionError.message);
       }
       return;
     }
 
-    // Verifica si Supabase exige confirmación por email: si no hay sesión, detenemos el flujo
+    if (!barbershopId) {
+      setLoading(false);
+      toast.error("No se pudo crear la barbería");
+      return;
+    }
+
+    // Check if we have an active session
     const { data: sessionData } = await supabase.auth.getSession();
+    
     if (!sessionData.session) {
+      // Email confirmation required - show message and stay on page
       setNeedsEmailVerification(true);
       setLoading(false);
       toast("Revisa tu correo", {
-        description: "Te enviamos un enlace para confirmar tu cuenta. Luego inicia sesión.",
+        description: "Te enviamos un enlace para confirmar tu cuenta. Después de confirmar, inicia sesión para acceder a tu dashboard.",
       });
       return;
     }
-
-    // Wait a bit for the user to be created and profile trigger to run
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    // Get the current user
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      setLoading(false);
-      toast.error("Error al crear la cuenta");
-      return;
-    }
-
-    // Create the barbershop
-    const { data: barbershop, error: barbershopError } = await supabase
-      .from("barbershops")
-      .insert({
-        name: barbershopName,
-        slug: slug,
-      })
-      .select()
-      .single();
-
-    if (barbershopError) {
-      setLoading(false);
-      console.error("Barbershop insert error:", barbershopError);
-      if (barbershopError.message.includes("duplicate")) {
-        toast.error("Este nombre de URL ya está en uso. Elige otro.");
-      } else {
-        toast.error("Error al crear la barbería: " + barbershopError.message);
-      }
-      return;
-    }
-
-    // Update the profile with the barbershop_id
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .update({ barbershop_id: barbershop.id })
-      .eq("user_id", user.id);
-
-    if (profileError) {
-      console.error("Profile update error:", profileError);
-    }
-
-    // Assign the owner role
-    const { error: roleError } = await supabase
-      .from("user_roles")
-      .insert({
-        user_id: user.id,
-        role: "owner",
-      });
-
-    if (roleError) {
-      console.error("Role assignment error:", roleError);
-    }
-
-    // Create default availability rules (Mon-Sat 10:00-20:00)
-    const defaultRules = [1, 2, 3, 4, 5, 6].map((day) => ({
-      barbershop_id: barbershop.id,
-      day_of_week: day,
-      open_time: "10:00:00",
-      close_time: "20:00:00",
-      is_enabled: true,
-    }));
-
-    await supabase.from("availability_rules").insert(defaultRules);
-
-    // Create the subscription with 30-day trial
-    const trialEndsAt = new Date();
-    trialEndsAt.setDate(trialEndsAt.getDate() + 30);
-
-    await supabase.from("subscriptions").insert({
-      barbershop_id: barbershop.id,
-      status: "trial",
-      trial_ends_at: trialEndsAt.toISOString(),
-    });
 
     setLoading(false);
     toast.success("¡Barbería creada con éxito!");

@@ -4,6 +4,21 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { 
   Search, 
   Filter, 
@@ -12,7 +27,8 @@ import {
   Clock,
   MoreVertical,
   CheckCircle,
-  XCircle
+  XCircle,
+  DollarSign
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -42,6 +58,10 @@ export function AppointmentsList() {
   const [searchQuery, setSearchQuery] = useState("");
   const { data: appointments, isLoading } = useAppointments();
   const queryClient = useQueryClient();
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<{ id: string; total: number } | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "other">("cash");
+  const [paymentAmount, setPaymentAmount] = useState("");
 
   const updateAppointmentStatus = async (appointmentId: string, status: "completed" | "canceled") => {
     try {
@@ -55,11 +75,55 @@ export function AppointmentsList() {
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       queryClient.invalidateQueries({ queryKey: ["appointment-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
 
       toast.success(status === "completed" ? "Cita marcada como completada" : "Cita cancelada");
     } catch (error) {
       console.error("Error updating appointment:", error);
       toast.error("Error al actualizar la cita");
+    }
+  };
+
+  const handleMarkAsPaid = (appointmentId: string, total: number) => {
+    setSelectedAppointment({ id: appointmentId, total });
+    setPaymentAmount(total.toFixed(2));
+    setPaymentDialogOpen(true);
+  };
+
+  const confirmPayment = async () => {
+    if (!selectedAppointment) return;
+
+    const amount = parseFloat(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Ingresa un monto válido");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("appointments")
+        .update({
+          payment_status: "paid",
+          payment_method: paymentMethod,
+          payment_amount: amount,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", selectedAppointment.id);
+
+      if (error) throw error;
+
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["appointment-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+
+      toast.success("Pago registrado correctamente");
+      setPaymentDialogOpen(false);
+      setSelectedAppointment(null);
+      setPaymentAmount("");
+    } catch (error) {
+      console.error("Error updating payment:", error);
+      toast.error("Error al registrar el pago");
     }
   };
 
@@ -131,14 +195,24 @@ export function AppointmentsList() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => updateAppointmentStatus(apt.id, "completed")}>
-                            <CheckCircle className="mr-2 h-4 w-4 text-success" />
-                            Marcar completada
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => updateAppointmentStatus(apt.id, "canceled")}>
-                            <XCircle className="mr-2 h-4 w-4 text-destructive" />
-                            Cancelar cita
-                          </DropdownMenuItem>
+                          {apt.status === "completed" && apt.payment_status === "unpaid" && (
+                            <DropdownMenuItem onClick={() => handleMarkAsPaid(apt.id, apt.total_price_estimated)}>
+                              <DollarSign className="mr-2 h-4 w-4 text-success" />
+                              Marcar como pagado
+                            </DropdownMenuItem>
+                          )}
+                          {apt.status !== "completed" && (
+                            <DropdownMenuItem onClick={() => updateAppointmentStatus(apt.id, "completed")}>
+                              <CheckCircle className="mr-2 h-4 w-4 text-success" />
+                              Marcar completada
+                            </DropdownMenuItem>
+                          )}
+                          {apt.status !== "canceled" && (
+                            <DropdownMenuItem onClick={() => updateAppointmentStatus(apt.id, "canceled")}>
+                              <XCircle className="mr-2 h-4 w-4 text-destructive" />
+                              Cancelar cita
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -156,10 +230,15 @@ export function AppointmentsList() {
                         ${apt.total_price_estimated}
                       </span>
                     </div>
-                    <div className="mt-2">
+                    <div className="mt-2 flex items-center gap-2">
                       <Badge variant={statusConfig[apt.status]?.variant || "pending"}>
                         {statusConfig[apt.status]?.label || apt.status}
                       </Badge>
+                      {apt.status === "completed" && (
+                        <Badge variant={apt.payment_status === "paid" ? "completed" : "pending"}>
+                          {apt.payment_status === "paid" ? "Pagado" : "Pendiente de pago"}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -168,6 +247,53 @@ export function AppointmentsList() {
           ))
         )}
       </div>
+
+      {/* Payment Dialog */}
+      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Registrar Pago</DialogTitle>
+            <DialogDescription>
+              Marca esta cita como pagada y registra el método de pago.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="amount">Monto</Label>
+              <Input
+                id="amount"
+                type="number"
+                step="0.01"
+                min="0"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="method">Método de pago</Label>
+              <Select value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as "cash" | "card" | "other")}>
+                <SelectTrigger id="method">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Efectivo</SelectItem>
+                  <SelectItem value="card">Tarjeta</SelectItem>
+                  <SelectItem value="other">Otro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={confirmPayment}>
+                Confirmar Pago
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

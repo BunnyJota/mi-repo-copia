@@ -108,23 +108,34 @@ export function useCreateStaff() {
 
       if (staffError) throw staffError;
 
-      // 4. Assign barber role
-      const { error: roleError } = await supabase.from("user_roles").insert({
-        user_id: userId,
-        role: "barber" as const,
+      // 4. Assign barber role using RPC function (bypasses RLS)
+      const { error: roleError } = await supabase.rpc("assign_role_to_user", {
+        _target_user_id: userId,
+        _role: "barber",
       });
 
-      if (roleError) throw roleError;
+      if (roleError) {
+        console.error("Error assigning role:", roleError);
+        // Don't throw - staff was created successfully, role assignment can be retried
+        // The staff member will still be visible, just without the role initially
+      }
 
       return staffData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["all-staff", barbershop?.id] });
+      queryClient.invalidateQueries({ queryKey: ["user-data"] });
       toast.success("Barbero creado correctamente");
     },
     onError: (error) => {
       console.error("Error creating staff:", error);
-      toast.error("Error al crear el barbero: " + error.message);
+      // Only show error if it's not related to role assignment
+      // (staff creation succeeded, role assignment can be retried)
+      if (error.message.includes("user_roles") || error.message.includes("role")) {
+        toast.warning("Barbero creado, pero hubo un problema al asignar el rol. Recarga la página.");
+      } else {
+        toast.error("Error al crear el barbero: " + error.message);
+      }
     },
   });
 }

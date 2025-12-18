@@ -21,6 +21,7 @@ if (!RESEND_API_KEY) {
   console.error("⚠️ RESEND_API_KEY no está configurada. Configúrala en Supabase Dashboard -> Edge Functions -> Secrets");
 }
 
+const RESEND_FROM = Deno.env.get("RESEND_FROM") || "no-reply@trimly.it.com";
 const resend = new Resend(RESEND_API_KEY);
 
 const corsHeaders = {
@@ -450,7 +451,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send email
     const { data: emailResult, error: emailError } = await resend.emails.send({
-      from: `${emailData.barbershop.name} <onboarding@resend.dev>`,
+      from: `${emailData.barbershop.name} <${RESEND_FROM}>`,
       to: [emailData.client.email],
       subject,
       html,
