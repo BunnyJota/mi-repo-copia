@@ -20,7 +20,7 @@ const Dashboard = () => {
   const renderContent = () => {
     switch (activeTab) {
       case "overview":
-        return <DashboardOverview />;
+        return <DashboardOverview onTabChange={setActiveTab} />;
       case "agenda":
         return <AgendaView />;
       case "appointments":

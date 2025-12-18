@@ -282,7 +282,7 @@ const Register = () => {
                       id="slug"
                       placeholder="the-classic-barber"
                       value={slug}
-                      onChange={(e) => setSlug(e.target.value)}
+                      onChange={(e) => setSlug(generateSlug(e.target.value))}
                       disabled={loading}
                       className="flex-1"
                     />

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +30,12 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
   const [barbershopDialogOpen, setBarbershopDialogOpen] = useState(false);
   const [hoursDialogOpen, setHoursDialogOpen] = useState(false);
   const [notificationsDialogOpen, setNotificationsDialogOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = () => setBarbershopDialogOpen(true);
+    window.addEventListener("open-barbershop-dialog", handler);
+    return () => window.removeEventListener("open-barbershop-dialog", handler);
+  }, []);
 
   const handleSettingClick = (id: string) => {
     switch (id) {

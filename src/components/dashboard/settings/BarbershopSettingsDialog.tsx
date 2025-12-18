@@ -12,6 +12,7 @@ import { useUserData } from "@/hooks/useUserData";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { getAppUrl } from "@/lib/utils";
 
 interface BarbershopSettingsDialogProps {
   open: boolean;
@@ -24,15 +25,27 @@ export function BarbershopSettingsDialog({ open, onOpenChange }: BarbershopSetti
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
+    slug: "",
     phone: "",
     address: "",
     brand_accent: "#E45500",
   });
 
+  const slugify = (value: string) =>
+    value
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .trim();
+
   useEffect(() => {
     if (barbershop) {
       setFormData({
         name: barbershop.name || "",
+        slug: barbershop.slug || "",
         phone: barbershop.phone || "",
         address: barbershop.address || "",
         brand_accent: barbershop.brand_accent || "#E45500",
@@ -42,7 +55,15 @@ export function BarbershopSettingsDialog({ open, onOpenChange }: BarbershopSetti
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!barbershop?.id) return;
+    if (!barbershop?.id) {
+      toast.error("Primero completa el registro de tu barbería.");
+      return;
+    }
+
+    if (!formData.name || !formData.slug) {
+      toast.error("Nombre y URL pública son obligatorios.");
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -50,6 +71,7 @@ export function BarbershopSettingsDialog({ open, onOpenChange }: BarbershopSetti
         .from("barbershops")
         .update({
           name: formData.name,
+          slug: formData.slug,
           phone: formData.phone || null,
           address: formData.address || null,
           brand_accent: formData.brand_accent,
@@ -82,10 +104,37 @@ export function BarbershopSettingsDialog({ open, onOpenChange }: BarbershopSetti
             <Input
               id="name"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) => {
+                const name = e.target.value;
+                setFormData({
+                  ...formData,
+                  name,
+                  slug: formData.slug || slugify(name),
+                });
+              }}
               placeholder="Mi Barbería"
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="slug">URL pública (slug)</Label>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground select-none">
+                {`${getAppUrl()}/b/`}
+              </span>
+              <Input
+                id="slug"
+                value={formData.slug}
+                onChange={(e) => setFormData({ ...formData, slug: slugify(e.target.value) })}
+                placeholder="mi-barberia"
+                required
+                className="flex-1"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Este es el enlace que compartirás con tus clientes. Puedes editarlo si lo necesitas.
+            </p>
           </div>
 
           <div className="space-y-2">
