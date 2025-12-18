@@ -8,7 +8,8 @@ import {
   Scissors, 
   UserCog,
   Settings,
-  ExternalLink
+  ExternalLink,
+  BarChart3
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useUserData } from "@/hooks/useUserData";
@@ -42,6 +43,7 @@ const mainNavItems = [
 const managementNavItems = [
   { id: "services" as const, label: "Servicios", icon: Scissors },
   { id: "staff" as const, label: "Equipo", icon: UserCog },
+  { id: "reports" as const, label: "Reportes", icon: BarChart3 },
 ];
 
 const settingsNavItems = [

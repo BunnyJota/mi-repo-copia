@@ -660,6 +660,21 @@ export type Database = {
         Args: { _barbershop_id: string; _user_id: string }
         Returns: boolean
       }
+      create_barbershop_for_user: {
+        Args: {
+          _user_id: string
+          _barbershop_name: string
+          _barbershop_slug: string
+        }
+        Returns: string
+      }
+      assign_role_to_user: {
+        Args: {
+          _target_user_id: string
+          _role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "owner" | "manager" | "barber" | "super_admin"

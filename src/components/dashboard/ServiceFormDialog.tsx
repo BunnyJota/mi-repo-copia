@@ -21,6 +21,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useCreateService, useUpdateService, type Service } from "@/hooks/useServices";
+import { useUserData } from "@/hooks/useUserData";
+import { toast } from "sonner";
 
 const serviceSchema = z.object({
   name: z.string().min(1, "El nombre es requerido").max(100),
@@ -45,6 +47,7 @@ export function ServiceFormDialog({
 }: ServiceFormDialogProps) {
   const createService = useCreateService();
   const updateService = useUpdateService();
+  const { barbershop } = useUserData();
   const isEditing = !!service;
 
   const form = useForm<ServiceFormValues>({
@@ -80,6 +83,10 @@ export function ServiceFormDialog({
 
   const onSubmit = async (values: ServiceFormValues) => {
     try {
+      if (!barbershop?.id) {
+        toast.error("Configura tu barbería antes de crear servicios.");
+        return;
+      }
       if (isEditing && service) {
         await updateService.mutateAsync({
           id: service.id,

@@ -145,15 +145,15 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
       </Card>
 
       {/* Public page link */}
-      <Card>
-        <CardContent className="p-4">
+        <Card>
+          <CardContent className="p-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="min-w-0">
-              <p className="font-medium">Tu página de reservas</p>
-              <p className="text-sm text-muted-foreground break-all">
+                <p className="font-medium">Tu página de reservas</p>
+                <p className="text-sm text-muted-foreground break-all">
                 {publicUrl ?? "Configura tu barbería para generar el link público."}
-              </p>
-            </div>
+                </p>
+              </div>
             {publicUrl ? (
               <Button variant="outline" size="sm" className="gap-2 shrink-0" asChild>
                 <Link to={`/b/${barbershop?.slug}`} target="_blank">
@@ -166,9 +166,9 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
                 Completar configuración
               </Button>
             )}
-          </div>
-        </CardContent>
-      </Card>
+            </div>
+          </CardContent>
+        </Card>
 
       {/* Reports */}
       <Card>

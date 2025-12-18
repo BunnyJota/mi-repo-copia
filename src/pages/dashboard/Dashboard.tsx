@@ -10,9 +10,10 @@ import { ClientsList } from "@/components/dashboard/ClientsList";
 import { SettingsView } from "@/components/dashboard/SettingsView";
 import { ServicesView } from "@/components/dashboard/ServicesView";
 import { StaffView } from "@/components/dashboard/StaffView";
+import { ReportsView } from "@/components/dashboard/ReportsView";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 
-export type DashboardTab = "overview" | "agenda" | "appointments" | "clients" | "services" | "staff" | "settings";
+export type DashboardTab = "overview" | "agenda" | "appointments" | "clients" | "services" | "staff" | "reports" | "settings";
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
@@ -31,6 +32,8 @@ const Dashboard = () => {
         return <ServicesView />;
       case "staff":
         return <StaffView />;
+      case "reports":
+        return <ReportsView />;
       case "settings":
         return <SettingsView onTabChange={setActiveTab} />;
       default:
