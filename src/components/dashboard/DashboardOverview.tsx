@@ -22,8 +22,13 @@ import { useUserData } from "@/hooks/useUserData";
 import { useState } from "react";
 import { toast } from "sonner";
 import { getAppUrl } from "@/lib/utils";
+import { DashboardTab } from "@/pages/dashboard/Dashboard";
 
-export function DashboardOverview() {
+interface DashboardOverviewProps {
+  onTabChange?: (tab: DashboardTab) => void;
+}
+
+export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
   const { profile, barbershop, loading: userLoading } = useUserData();
   const { data: todayAppointments, isLoading: appointmentsLoading } = useTodayAppointments();
   const { data: stats, isLoading: statsLoading } = useAppointmentStats();
@@ -118,7 +123,14 @@ export function DashboardOverview() {
               <p className="text-sm text-muted-foreground">
                 Configura tu barbería para generar el enlace público de reservas.
               </p>
-              <Button variant="outline" size="sm" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onTabChange?.("settings");
+                  window.dispatchEvent(new CustomEvent("open-barbershop-dialog"));
+                }}
+              >
                 Completar configuración
               </Button>
             </div>

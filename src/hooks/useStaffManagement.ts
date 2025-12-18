@@ -70,7 +70,7 @@ export function useCreateStaff() {
         email: staff.email,
         password: staff.password,
         options: {
-          emailRedirectTo: `${getAppUrl()}/`,
+          emailRedirectTo: `${getAppUrl()}/email-confirmed`,
           data: {
             display_name: staff.display_name,
           },

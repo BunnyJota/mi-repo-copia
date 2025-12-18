@@ -13,6 +13,7 @@ import Dashboard from "./pages/dashboard/Dashboard";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import NotFound from "./pages/NotFound";
+import EmailConfirmed from "./pages/auth/EmailConfirmed";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +28,7 @@ const App = () => (
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/email-confirmed" element={<EmailConfirmed />} />
             <Route path="/b/:slug" element={<PublicBooking />} />
             <Route path="/m/:token" element={<ManageAppointment />} />
             <Route path="/confirm/:token" element={<ConfirmAppointment />} />

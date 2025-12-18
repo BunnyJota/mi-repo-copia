@@ -1,5 +1,5 @@
-import { Scissors } from "lucide-react";
 import { cn } from "@/lib/utils";
+import TrimlyLogo from "@/assets/trimly-logo.svg";
 
 interface LogoProps {
   size?: "sm" | "md" | "lg";
@@ -17,13 +17,15 @@ export function Logo({ size = "md", showText = true, className }: LogoProps) {
   return (
     <div className={cn("flex items-center gap-2", className)}>
       <div className="relative">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-          <Scissors className="h-5 w-5 text-primary-foreground" strokeWidth={2.5} />
-        </div>
+        <img
+          src={TrimlyLogo}
+          alt="Trimly"
+          className="h-9 w-9 rounded-lg object-contain"
+        />
       </div>
       {showText && (
         <span className={cn("font-display font-bold tracking-tight", sizes[size].text)}>
-          Mi Plataforma
+          Trimly
         </span>
       )}
     </div>
