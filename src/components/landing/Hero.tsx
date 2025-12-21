@@ -3,9 +3,11 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, CalendarCheck, Users, Ban } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getAppUrl } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 export function Hero() {
   const dashboardUrl = `${getAppUrl()}/dashboard`;
+  const { t } = useI18n();
 
   return (
     <section className="relative overflow-hidden bg-background pb-20 pt-32 md:pb-32 md:pt-40">
@@ -27,7 +29,7 @@ export function Hero() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75"></span>
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-primary"></span>
               </span>
-              La plataforma #1 para barberías
+              {t("hero.badge" as any)}
             </div>
           </motion.div>
 
@@ -37,8 +39,7 @@ export function Hero() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="font-display text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl lg:text-7xl"
           >
-            Gestiona tu barbería.{" "}
-            <span className="text-primary">Sin complicaciones.</span>
+            {t("hero.title" as any)}
           </motion.h1>
 
           <motion.p
@@ -47,7 +48,7 @@ export function Hero() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl"
           >
-            Reservas online, agenda inteligente y cobros automáticos. Todo lo que necesitas para hacer crecer tu negocio en una sola plataforma.
+            {t("hero.subtitle" as any)}
           </motion.p>
 
           <motion.div
@@ -58,12 +59,12 @@ export function Hero() {
           >
             <Button variant="hero" size="xl" asChild>
               <Link to="/register">
-                Prueba gratis 30 días
+                {t("hero.cta" as any)}
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
             <Button variant="hero-outline" size="xl" asChild>
-              <Link to="/b/classic-barber">Ver demo</Link>
+              <Link to="/b/demo">{t("hero.demo" as any)}</Link>
             </Button>
           </motion.div>
 
@@ -84,7 +85,7 @@ export function Hero() {
                 +10,000
               </p>
               <p className="mt-1 text-xs md:text-sm text-muted-foreground">
-                citas/mes
+                {t("hero.stats.appointments" as any)}
               </p>
             </div>
             <div className="text-center">
@@ -97,7 +98,7 @@ export function Hero() {
                 +500
               </p>
               <p className="mt-1 text-xs md:text-sm text-muted-foreground">
-                barberías
+                {t("hero.stats.barbershops" as any)}
               </p>
             </div>
             <div className="text-center">
@@ -107,10 +108,10 @@ export function Hero() {
                 </div>
               </div>
               <p className="mt-3 font-display text-xl font-bold text-foreground md:text-3xl">
-                Sin
+                {t("hero.stats.no" as any)}
               </p>
               <p className="mt-1 text-xs md:text-sm text-muted-foreground">
-                comisiones
+                {t("hero.stats.noFees" as any)}
               </p>
             </div>
           </motion.div>
@@ -142,20 +143,20 @@ export function Hero() {
               <div className="grid gap-4 md:grid-cols-4">
                 {/* Stats cards */}
                 <div className="rounded-xl bg-card border border-border p-4">
-                  <p className="text-sm text-muted-foreground">Citas hoy</p>
+                  <p className="text-sm text-muted-foreground">{t("hero.mockup.todayAppointments" as any)}</p>
                   <p className="mt-1 font-display text-2xl font-bold text-foreground">8</p>
                 </div>
                 <div className="rounded-xl bg-card border border-border p-4">
-                  <p className="text-sm text-muted-foreground">Esta semana</p>
+                  <p className="text-sm text-muted-foreground">{t("hero.mockup.thisWeek" as any)}</p>
                   <p className="mt-1 font-display text-2xl font-bold text-foreground">32</p>
                 </div>
                 <div className="rounded-xl bg-card border border-border p-4">
-                  <p className="text-sm text-muted-foreground">Ingresos mes</p>
+                  <p className="text-sm text-muted-foreground">{t("hero.mockup.monthRevenue" as any)}</p>
                   <p className="mt-1 font-display text-2xl font-bold text-foreground">$2,450</p>
                   <span className="text-xs text-green-500">+12%</span>
                 </div>
                 <div className="rounded-xl bg-card border border-border p-4">
-                  <p className="text-sm text-muted-foreground">Clientes nuevos</p>
+                  <p className="text-sm text-muted-foreground">{t("hero.mockup.newClients" as any)}</p>
                   <p className="mt-1 font-display text-2xl font-bold text-foreground">24</p>
                   <span className="text-xs text-green-500">+8</span>
                 </div>
@@ -164,8 +165,8 @@ export function Hero() {
               {/* Table mockup */}
               <div className="mt-4 rounded-xl bg-card border border-border overflow-hidden">
                 <div className="border-b border-border bg-muted/30 px-4 py-3">
-                  <p className="font-semibold text-foreground">Agenda de hoy</p>
-                  <p className="text-sm text-muted-foreground">Buenos días, Carlos</p>
+                  <p className="font-semibold text-foreground">{t("hero.mockup.todayAgenda" as any)}</p>
+                  <p className="text-sm text-muted-foreground">{t("hero.mockup.greeting" as any)}</p>
                 </div>
                 <div className="divide-y divide-border">
                   {[

@@ -17,6 +17,7 @@ export interface Barbershop {
   name: string;
   slug: string;
   timezone: string;
+  currency?: string;
   phone: string | null;
   address: string | null;
   logo_url: string | null;
@@ -114,7 +115,31 @@ export function useUserData() {
     };
 
     fetchData();
-  }, [user]);
+
+    // Set up real-time subscription for barbershop changes (including currency)
+    if (profile?.barbershop_id) {
+      const channel = supabase
+        .channel(`barbershop-${profile.barbershop_id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "barbershops",
+            filter: `id=eq.${profile.barbershop_id}`,
+          },
+          (payload) => {
+            // Update barbershop data when it changes
+            setBarbershop(payload.new as Barbershop);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [user, profile?.barbershop_id]);
 
   const hasRole = (role: UserRole["role"]) => {
     return roles.some((r) => r.role === role);

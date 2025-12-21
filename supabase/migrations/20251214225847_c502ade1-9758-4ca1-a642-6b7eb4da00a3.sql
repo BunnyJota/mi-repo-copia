@@ -1,17 +1,26 @@
--- Create role enum for RBAC
+-- Create enums if not exist
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'app_role') THEN
 CREATE TYPE public.app_role AS ENUM ('owner', 'manager', 'barber', 'super_admin');
+  END IF;
 
--- Create appointment status enum
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'appointment_status') THEN
 CREATE TYPE public.appointment_status AS ENUM ('pending', 'confirmed', 'completed', 'canceled', 'no_show', 'rescheduled');
+  END IF;
 
--- Create payment status enum
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_status') THEN
 CREATE TYPE public.payment_status AS ENUM ('unpaid', 'paid');
+  END IF;
 
--- Create payment method enum  
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_method') THEN
 CREATE TYPE public.payment_method AS ENUM ('cash', 'card', 'other');
+  END IF;
 
--- Create subscription status enum
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'subscription_status') THEN
 CREATE TYPE public.subscription_status AS ENUM ('trial', 'active', 'past_due', 'canceled', 'inactive');
+  END IF;
+END$$;
 
 -- =====================
 -- BARBERSHOPS TABLE

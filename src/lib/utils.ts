@@ -19,3 +19,16 @@ export function getAppUrl() {
   // Fallback sensato para builds sin entorno definido
   return "https://trimly.it.com";
 }
+
+export function formatCurrency(amount: number, currency: string = "USD", locale: string = "es") {
+  try {
+    return new Intl.NumberFormat(locale === "en" ? "en-US" : "es-ES", {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${currency} ${amount}`;
+  }
+}

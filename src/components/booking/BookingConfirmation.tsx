@@ -2,16 +2,20 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Calendar, Clock, User, Scissors, Mail } from "lucide-react";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { es, enUS } from "date-fns/locale";
 import type {
   SelectedService,
   SelectedBarber,
   SelectedDateTime,
   ClientData,
 } from "@/pages/booking/PublicBooking";
+import { useI18n } from "@/i18n";
+import { formatCurrency } from "@/lib/utils";
+import type { PublicBarbershop } from "@/hooks/usePublicBooking";
 
 interface BookingConfirmationProps {
   barbershopName: string;
+  barbershop?: PublicBarbershop | null;
   clientData: ClientData;
   selectedServices: SelectedService[];
   selectedBarber: SelectedBarber | null;
@@ -21,6 +25,7 @@ interface BookingConfirmationProps {
 
 export function BookingConfirmation({
   barbershopName,
+  barbershop,
   clientData,
   selectedServices,
   selectedBarber,
@@ -28,6 +33,8 @@ export function BookingConfirmation({
   totalPrice,
 }: BookingConfirmationProps) {
   const totalDuration = selectedServices.reduce((acc, s) => acc + s.duration, 0);
+  const { t, lang } = useI18n();
+  const locale = lang === "en" ? enUS : es;
 
   return (
     <div className="space-y-6 text-center">
@@ -39,18 +46,25 @@ export function BookingConfirmation({
 
       <div>
         <h1 className="font-display text-2xl font-bold text-foreground">
-          ¡Cita confirmada!
+          {t("booking.confirmed" as any)}
         </h1>
-        <p className="mt-2 text-muted-foreground">
-          Hemos enviado los detalles a{" "}
-          <span className="font-medium text-foreground">{clientData.email}</span>
-        </p>
+        {barbershop?.id === "demo-barbershop-id" ? (
+          <p className="mt-2 text-muted-foreground">
+            Esta es una vista previa. En una reserva real, recibirías un email de confirmación en{" "}
+            <span className="font-medium text-foreground">{clientData.email}</span>
+          </p>
+        ) : (
+          <p className="mt-2 text-muted-foreground">
+            {t("booking.sentTo" as any)}{" "}
+            <span className="font-medium text-foreground">{clientData.email}</span>
+          </p>
+        )}
       </div>
 
       <Card>
         <CardContent className="p-6">
           <div className="mb-4 border-b pb-4 text-left">
-            <p className="text-sm text-muted-foreground">Reserva en</p>
+            <p className="text-sm text-muted-foreground">{t("booking.at" as any)}</p>
             <p className="font-display font-semibold text-foreground">{barbershopName}</p>
           </div>
           
@@ -60,9 +74,11 @@ export function BookingConfirmation({
               <div>
                 <p className="font-medium">
                   {selectedDateTime &&
-                    format(selectedDateTime.date, "EEEE d 'de' MMMM 'de' yyyy", {
-                      locale: es,
-                    })}
+                    format(
+                      selectedDateTime.date,
+                      lang === "en" ? "EEEE, MMMM d, yyyy" : "EEEE d 'de' MMMM 'de' yyyy",
+                      { locale }
+                    )}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   {selectedDateTime?.time}
@@ -74,7 +90,7 @@ export function BookingConfirmation({
               <User className="mt-0.5 h-5 w-5 text-primary" />
               <div>
                 <p className="font-medium">{selectedBarber?.name}</p>
-                <p className="text-sm text-muted-foreground">Tu barbero</p>
+                <p className="text-sm text-muted-foreground">{t("booking.barber" as any)}</p>
               </div>
             </div>
 
@@ -84,7 +100,7 @@ export function BookingConfirmation({
                 <p className="font-medium">
                   {selectedServices.map((s) => s.name).join(", ")}
                 </p>
-                <p className="text-sm text-muted-foreground">Servicios</p>
+                <p className="text-sm text-muted-foreground">{t("booking.services" as any)}</p>
               </div>
             </div>
 
@@ -92,19 +108,19 @@ export function BookingConfirmation({
               <Clock className="mt-0.5 h-5 w-5 text-primary" />
               <div>
                 <p className="font-medium">{totalDuration} minutos</p>
-                <p className="text-sm text-muted-foreground">Duración estimada</p>
+                <p className="text-sm text-muted-foreground">{t("booking.duration" as any)}</p>
               </div>
             </div>
 
             <div className="border-t pt-4">
               <div className="flex items-center justify-between">
-                <span className="font-medium">Total a pagar</span>
+                <span className="font-medium">{t("booking.totalToPay" as any)}</span>
                 <span className="font-display text-xl font-bold text-primary">
-                  ${totalPrice}
+                  {formatCurrency(totalPrice, barbershop?.currency || "USD", lang)}
                 </span>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Pago en el local
+                {t("booking.payOnSite" as any)}
               </p>
             </div>
           </div>
@@ -114,11 +130,11 @@ export function BookingConfirmation({
       <div className="space-y-3">
         <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
           <Mail className="h-4 w-4" />
-          <span>Revisa tu email para gestionar tu cita</span>
+          <span>{t("booking.checkEmail" as any)}</span>
         </div>
 
         <Button variant="outline" size="lg" className="w-full" asChild>
-          <a href="/">Volver al inicio</a>
+          <a href="/">{t("booking.backHome" as any)}</a>
         </Button>
       </div>
     </div>

@@ -16,6 +16,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
 };
 
 interface ConfirmRequest {
@@ -27,7 +29,8 @@ const handler = async (req: Request): Promise<Response> => {
   console.log("Confirm appointment function called");
 
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    // Preflight response
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {

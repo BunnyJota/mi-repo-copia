@@ -93,7 +93,13 @@ export function HoursSettingsDialog({ open, onOpenChange }: HoursSettingsDialogP
 
       if (error) throw error;
 
+      // Invalidate both dashboard and public queries
       queryClient.invalidateQueries({ queryKey: ["availability-rules"] });
+      queryClient.invalidateQueries({ queryKey: ["public-availability-rules"] });
+      queryClient.invalidateQueries({ queryKey: ["available-slots"] });
+      // Also invalidate related queries to ensure fresh data
+      queryClient.invalidateQueries({ queryKey: ["public-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["public-time-blocks"] });
       toast.success("Horarios actualizados correctamente");
       onOpenChange(false);
     } catch (error) {

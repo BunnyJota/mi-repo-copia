@@ -12,12 +12,16 @@ import type {
   SelectedDateTime,
   ClientData,
 } from "@/pages/booking/PublicBooking";
+import { formatCurrency } from "@/lib/utils";
+import { useI18n } from "@/i18n";
+import type { PublicBarbershop } from "@/hooks/usePublicBooking";
 
 interface ClientFormProps {
   selectedServices: SelectedService[];
   selectedBarber: SelectedBarber | null;
   selectedDateTime: SelectedDateTime | null;
   totalPrice: number;
+  barbershop?: PublicBarbershop | null;
   onConfirm: (data: ClientData) => void;
   onBack: () => void;
   isSubmitting?: boolean;
@@ -28,10 +32,12 @@ export function ClientForm({
   selectedBarber,
   selectedDateTime,
   totalPrice,
+  barbershop,
   onConfirm,
   onBack,
   isSubmitting = false,
 }: ClientFormProps) {
+  const { lang } = useI18n();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -107,7 +113,7 @@ export function ClientForm({
               <div className="flex items-center justify-between">
                 <span className="font-medium">Total a pagar</span>
                 <span className="font-display text-lg font-bold text-primary">
-                  ${totalPrice}
+                  {formatCurrency(totalPrice, barbershop?.currency || "USD", lang)}
                 </span>
               </div>
             </div>

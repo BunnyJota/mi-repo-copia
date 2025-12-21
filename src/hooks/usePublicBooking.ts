@@ -6,6 +6,7 @@ export interface PublicBarbershop {
   id: string;
   name: string;
   slug: string;
+  currency?: string;
   address: string | null;
   phone: string | null;
   logo_url: string | null;
@@ -44,13 +45,93 @@ export interface StaffAvailabilityRule extends AvailabilityRule {
   staff_user_id: string;
 }
 
+// Demo data
+const DEMO_BARBERSHOP: PublicBarbershop = {
+  id: "demo-barbershop-id",
+  name: "Classic Barber",
+  slug: "demo",
+  currency: "USD",
+  address: "123 Main Street, New York",
+  phone: "+1 (555) 123-4567",
+  logo_url: null,
+  brand_accent: "#E45500",
+  timezone: "America/New_York",
+  slot_interval_minutes: 15,
+  buffer_minutes: 10,
+  booking_window_days: 30,
+  min_advance_hours: 2,
+};
+
+const DEMO_SERVICES: PublicService[] = [
+  {
+    id: "demo-service-1",
+    name: "Corte Clásico",
+    description: "Corte de cabello tradicional",
+    duration_min: 30,
+    price: 25,
+  },
+  {
+    id: "demo-service-2",
+    name: "Corte + Barba",
+    description: "Corte de cabello y arreglo de barba",
+    duration_min: 45,
+    price: 35,
+  },
+  {
+    id: "demo-service-3",
+    name: "Fade",
+    description: "Corte degradado moderno",
+    duration_min: 40,
+    price: 30,
+  },
+  {
+    id: "demo-service-4",
+    name: "Afeitado Clásico",
+    description: "Afeitado con navaja tradicional",
+    duration_min: 25,
+    price: 20,
+  },
+];
+
+const DEMO_STAFF: PublicStaff[] = [
+  {
+    id: "demo-staff-1",
+    user_id: "demo-user-1",
+    display_name: "Carlos",
+    photo_url: null,
+    color_tag: "#3B82F6",
+  },
+  {
+    id: "demo-staff-2",
+    user_id: "demo-user-2",
+    display_name: "Miguel",
+    photo_url: null,
+    color_tag: "#10B981",
+  },
+];
+
+const DEMO_AVAILABILITY_RULES: AvailabilityRule[] = [
+  { day_of_week: 1, open_time: "09:00", close_time: "18:00", is_enabled: true },
+  { day_of_week: 2, open_time: "09:00", close_time: "18:00", is_enabled: true },
+  { day_of_week: 3, open_time: "09:00", close_time: "18:00", is_enabled: true },
+  { day_of_week: 4, open_time: "09:00", close_time: "18:00", is_enabled: true },
+  { day_of_week: 5, open_time: "09:00", close_time: "18:00", is_enabled: true },
+  { day_of_week: 6, open_time: "10:00", close_time: "16:00", is_enabled: true },
+  { day_of_week: 0, open_time: "10:00", close_time: "14:00", is_enabled: true },
+];
+
 export function useBarbershopBySlug(slug: string) {
   return useQuery({
     queryKey: ["public-barbershop", slug],
     queryFn: async () => {
+      // Demo mode
+      if (slug === "demo") {
+        return DEMO_BARBERSHOP;
+      }
+
       const { data, error } = await supabase
         .from("barbershops")
-        .select("id, name, slug, address, phone, logo_url, brand_accent, timezone, slot_interval_minutes, buffer_minutes, booking_window_days, min_advance_hours")
+        .select("id, name, slug, address, phone, logo_url, brand_accent, timezone, slot_interval_minutes, buffer_minutes, booking_window_days, min_advance_hours, currency")
         .eq("slug", slug)
         .eq("is_active", true)
         .maybeSingle();
@@ -71,6 +152,11 @@ export function usePublicServices(barbershopId: string | undefined) {
     queryKey: ["public-services", barbershopId],
     queryFn: async () => {
       if (!barbershopId) return [];
+
+      // Demo mode
+      if (barbershopId === "demo-barbershop-id") {
+        return DEMO_SERVICES;
+      }
 
       const { data, error } = await supabase
         .from("services")
@@ -96,6 +182,11 @@ export function usePublicStaff(barbershopId: string | undefined) {
     queryFn: async () => {
       if (!barbershopId) return [];
 
+      // Demo mode
+      if (barbershopId === "demo-barbershop-id") {
+        return DEMO_STAFF;
+      }
+
       const { data, error } = await supabase
         .from("staff_profiles")
         .select("id, user_id, display_name, photo_url, color_tag")
@@ -111,6 +202,8 @@ export function usePublicStaff(barbershopId: string | undefined) {
       return data as PublicStaff[];
     },
     enabled: !!barbershopId,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }
 
@@ -119,6 +212,11 @@ export function useAvailabilityRulesPublic(barbershopId: string | undefined) {
     queryKey: ["public-availability-rules", barbershopId],
     queryFn: async () => {
       if (!barbershopId) return [];
+
+      // Demo mode
+      if (barbershopId === "demo-barbershop-id") {
+        return DEMO_AVAILABILITY_RULES;
+      }
 
       const { data, error } = await supabase
         .from("availability_rules")
@@ -134,14 +232,36 @@ export function useAvailabilityRulesPublic(barbershopId: string | undefined) {
       return data as AvailabilityRule[];
     },
     enabled: !!barbershopId,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }
+
+const DEMO_STAFF_AVAILABILITY: StaffAvailabilityRule[] = [
+  { staff_user_id: "demo-user-1", day_of_week: 1, open_time: "09:00", close_time: "18:00", is_enabled: true },
+  { staff_user_id: "demo-user-1", day_of_week: 2, open_time: "09:00", close_time: "18:00", is_enabled: true },
+  { staff_user_id: "demo-user-1", day_of_week: 3, open_time: "09:00", close_time: "18:00", is_enabled: true },
+  { staff_user_id: "demo-user-1", day_of_week: 4, open_time: "09:00", close_time: "18:00", is_enabled: true },
+  { staff_user_id: "demo-user-1", day_of_week: 5, open_time: "09:00", close_time: "18:00", is_enabled: true },
+  { staff_user_id: "demo-user-1", day_of_week: 6, open_time: "10:00", close_time: "16:00", is_enabled: true },
+  { staff_user_id: "demo-user-2", day_of_week: 1, open_time: "09:00", close_time: "18:00", is_enabled: true },
+  { staff_user_id: "demo-user-2", day_of_week: 2, open_time: "09:00", close_time: "18:00", is_enabled: true },
+  { staff_user_id: "demo-user-2", day_of_week: 3, open_time: "09:00", close_time: "18:00", is_enabled: true },
+  { staff_user_id: "demo-user-2", day_of_week: 4, open_time: "09:00", close_time: "18:00", is_enabled: true },
+  { staff_user_id: "demo-user-2", day_of_week: 5, open_time: "09:00", close_time: "18:00", is_enabled: true },
+  { staff_user_id: "demo-user-2", day_of_week: 6, open_time: "10:00", close_time: "16:00", is_enabled: true },
+];
 
 export function useStaffAvailabilityPublic(barbershopId: string | undefined) {
   return useQuery({
     queryKey: ["public-staff-availability", barbershopId],
     queryFn: async () => {
       if (!barbershopId) return [];
+
+      // Demo mode
+      if (barbershopId === "demo-barbershop-id") {
+        return DEMO_STAFF_AVAILABILITY;
+      }
 
       const { data, error } = await supabase
         .from("staff_availability_rules")
@@ -158,6 +278,8 @@ export function useStaffAvailabilityPublic(barbershopId: string | undefined) {
       return data as StaffAvailabilityRule[];
     },
     enabled: !!barbershopId,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }
 
@@ -166,6 +288,11 @@ export function useTimeBlocks(barbershopId: string | undefined, date: Date) {
     queryKey: ["public-time-blocks", barbershopId, format(date, "yyyy-MM-dd")],
     queryFn: async () => {
       if (!barbershopId) return [];
+
+      // Demo mode - no time blocks
+      if (barbershopId === "demo-barbershop-id") {
+        return [];
+      }
 
       const dayStart = startOfDay(date).toISOString();
       const dayEnd = endOfDay(date).toISOString();
@@ -185,6 +312,8 @@ export function useTimeBlocks(barbershopId: string | undefined, date: Date) {
       return data;
     },
     enabled: !!barbershopId,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }
 
@@ -197,6 +326,11 @@ export function useExistingAppointments(
     queryKey: ["public-appointments", barbershopId, format(date, "yyyy-MM-dd"), staffUserId],
     queryFn: async () => {
       if (!barbershopId) return [];
+
+      // Demo mode - no existing appointments
+      if (barbershopId === "demo-barbershop-id") {
+        return [];
+      }
 
       const dayStart = startOfDay(date).toISOString();
       const dayEnd = endOfDay(date).toISOString();
@@ -223,6 +357,8 @@ export function useExistingAppointments(
       return data;
     },
     enabled: !!barbershopId,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }
 
@@ -253,14 +389,18 @@ export function useAvailableSlots(
       barbershop?.id, 
       format(date, "yyyy-MM-dd"), 
       totalDuration,
-      staffUserId,
-      availabilityRules,
-      staffAvailability,
-      timeBlocks,
-      existingAppointments
+      staffUserId
     ],
     queryFn: async () => {
-      if (!barbershop || !availabilityRules) return [];
+      if (!barbershop || availabilityRules === undefined || staff === undefined) return [];
+
+      // No staff => no slots
+      if (!staff || staff.length === 0) return [];
+
+      // Enforce booking window (same rule as UI)
+      const todayStart = startOfDay(new Date());
+      const windowEnd = addDays(todayStart, barbershop.booking_window_days);
+      if (date > windowEnd) return [];
 
       const dayOfWeek = getDay(date);
       const dayRule = availabilityRules.find(
@@ -273,12 +413,16 @@ export function useAvailableSlots(
       const buffer = barbershop.buffer_minutes;
       const now = new Date();
       const minAdvance = addMinutes(now, barbershop.min_advance_hours * 60);
+      const totalWithBuffer = totalDuration + buffer;
 
       // Parse barbershop opening hours
       const [shopOpenHour, shopOpenMin] = dayRule.open_time.split(":").map(Number);
       const [shopCloseHour, shopCloseMin] = dayRule.close_time.split(":").map(Number);
       const shopOpenMinutes = shopOpenHour * 60 + shopOpenMin;
       const shopCloseMinutes = shopCloseHour * 60 + shopCloseMin;
+
+      // If service duration (with buffer) does not fit in the day, skip
+      if (totalWithBuffer > shopCloseMinutes - shopOpenMinutes) return [];
 
       const slots: AvailableSlot[] = [];
       const dateStr = format(date, "yyyy-MM-dd");
@@ -316,28 +460,32 @@ export function useAvailableSlots(
             });
           }
           // If staffDayRule is null/undefined but staff has rules, they don't work this day - skip them
+          // (don't add to staffWorkingHours, so they won't be available)
         } else {
           // Staff has no custom rules, use barbershop hours
+          // Only add if barbershop is open this day
+          if (dayRule.is_enabled) {
           staffWorkingHours.set(staffMember.user_id, {
             openMinutes: shopOpenMinutes,
             closeMinutes: shopCloseMinutes,
           });
+          }
         }
       }
 
       // If no staff is available this day, return empty
       if (staffWorkingHours.size === 0) return [];
 
-      // Generate time slots based on barbershop hours
+      // Generate time slots based on barbershop hours (service + buffer must fit)
       let currentMinutes = shopOpenMinutes;
 
-      while (currentMinutes + totalDuration <= shopCloseMinutes) {
+      while (currentMinutes + totalWithBuffer <= shopCloseMinutes) {
         const hour = Math.floor(currentMinutes / 60);
         const minute = currentMinutes % 60;
         const timeStr = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
         
         const slotStart = new Date(`${dateStr}T${timeStr}:00`);
-        const slotEnd = addMinutes(slotStart, totalDuration + buffer);
+        const slotEnd = addMinutes(slotStart, totalWithBuffer);
 
         // Skip if slot is in the past
         if (slotStart < minAdvance) {
@@ -355,7 +503,10 @@ export function useAvailableSlots(
           if (!hours) continue;
 
           // Check if slot is within staff working hours
-          if (currentMinutes < hours.openMinutes || currentMinutes + totalDuration > hours.closeMinutes) {
+          if (
+            currentMinutes < hours.openMinutes || 
+            currentMinutes + totalWithBuffer > hours.closeMinutes
+          ) {
             continue;
           }
 
@@ -376,7 +527,10 @@ export function useAvailableSlots(
             if (apt.staff_user_id !== staffMember.user_id) return false;
             const aptStart = new Date(apt.start_at);
             const aptEnd = new Date(apt.end_at);
-            return slotStart < aptEnd && slotEnd > aptStart;
+            // Apply buffer before/after existing appointments
+            const aptStartWithBuffer = addMinutes(aptStart, -buffer);
+            const aptEndWithBuffer = addMinutes(aptEnd, buffer);
+            return slotStart < aptEndWithBuffer && slotEnd > aptStartWithBuffer;
           });
 
           if (!hasConflict) {
@@ -393,7 +547,9 @@ export function useAvailableSlots(
 
       return slots;
     },
-    enabled: !!barbershop && !!availabilityRules && !!staff,
+    enabled: !!barbershop && availabilityRules !== undefined && staff !== undefined,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }
 

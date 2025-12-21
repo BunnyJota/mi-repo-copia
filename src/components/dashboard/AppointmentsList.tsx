@@ -42,6 +42,9 @@ import { useAppointments } from "@/hooks/useAppointments";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { formatCurrency } from "@/lib/utils";
+import { useUserData } from "@/hooks/useUserData";
+import { useI18n } from "@/i18n";
 
 type AppointmentStatus = "pending" | "confirmed" | "completed" | "canceled" | "no_show" | "rescheduled";
 
@@ -57,6 +60,8 @@ const statusConfig: Record<AppointmentStatus, { label: string; variant: "pending
 export function AppointmentsList() {
   const [searchQuery, setSearchQuery] = useState("");
   const { data: appointments, isLoading } = useAppointments();
+  const { barbershop } = useUserData();
+  const { lang } = useI18n();
   const queryClient = useQueryClient();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<{ id: string; total: number } | null>(null);
@@ -227,7 +232,7 @@ export function AppointmentsList() {
                       </span>
                       <span>• {apt.staff?.display_name || "Sin asignar"}</span>
                       <span className="font-medium text-foreground">
-                        ${apt.total_price_estimated}
+                        {formatCurrency(apt.total_price_estimated, barbershop?.currency || "USD", lang)}
                       </span>
                     </div>
                     <div className="mt-2 flex items-center gap-2">

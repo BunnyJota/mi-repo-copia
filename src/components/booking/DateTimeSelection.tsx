@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -49,12 +49,17 @@ export function DateTimeSelection({
   const handleDateChange = (date: Date | undefined) => {
     if (date) {
       setSelectedDate(date);
+      // Clear selected time when date changes to a different day
+      if (selectedDateTime && !isSameDay(date, selectedDateTime.date)) {
+        onDateTimeChange({ date, time: "", availableStaffUserIds: [] });
+      }
     }
   };
 
   const handleTimeSelect = (time: string) => {
     if (selectedDate) {
-      onDateTimeChange({ date: selectedDate, time });
+      const slot = availableSlots?.find((s) => s.time === time);
+      onDateTimeChange({ date: selectedDate, time, availableStaffUserIds: slot?.staffUserIds || [] });
     }
   };
 
@@ -129,7 +134,9 @@ export function DateTimeSelection({
             </div>
           ) : (
             <p className="rounded-lg bg-muted p-4 text-center text-sm text-muted-foreground">
-              No hay horarios disponibles para esta fecha. Prueba otro día.
+              {staff.length === 0
+                ? "No hay barberos activos. Activa al menos uno para ofrecer horarios."
+                : "No hay horarios disponibles para esta fecha. Prueba otro día u otro barbero."}
             </p>
           )}
         </div>
@@ -145,7 +152,7 @@ export function DateTimeSelection({
           variant="hero"
           size="lg"
           onClick={onNext}
-          disabled={!selectedDateTime}
+          disabled={!selectedDateTime?.time}
           className="flex-1"
         >
           Continuar

@@ -16,10 +16,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatCurrency } from "@/lib/utils";
+import { useUserData } from "@/hooks/useUserData";
+import { useI18n } from "@/i18n";
 
 export function ServicesView() {
   const { data: services, isLoading } = useServices();
   const deleteService = useDeleteService();
+  const { barbershop } = useUserData();
+  const { lang } = useI18n();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [deletingService, setDeletingService] = useState<Service | null>(null);
@@ -41,10 +46,7 @@ export function ServicesView() {
   };
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("es-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(price);
+    return formatCurrency(price, barbershop?.currency || "USD", lang);
   };
 
   const activeServices = services?.filter((s) => s.is_active) || [];

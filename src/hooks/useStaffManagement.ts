@@ -161,6 +161,8 @@ export function useUpdateStaff() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["all-staff", barbershop?.id] });
+      queryClient.invalidateQueries({ queryKey: ["public-staff"] });
+      queryClient.invalidateQueries({ queryKey: ["available-slots"] });
       toast.success("Barbero actualizado correctamente");
     },
     onError: (error) => {
@@ -187,6 +189,8 @@ export function useToggleStaffActive() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["all-staff", barbershop?.id] });
+      queryClient.invalidateQueries({ queryKey: ["public-staff"] });
+      queryClient.invalidateQueries({ queryKey: ["available-slots"] });
       toast.success(data.is_active ? "Barbero activado" : "Barbero desactivado");
     },
     onError: (error) => {
@@ -237,8 +241,24 @@ export function useSaveStaffAvailability() {
       return data;
     },
     onSuccess: (_, variables) => {
+      // Invalidate both dashboard and public queries
       queryClient.invalidateQueries({
         queryKey: ["staff-availability", variables.staffUserId],
+      });
+      // Invalidate all public staff availability queries for this barbershop
+      queryClient.invalidateQueries({
+        queryKey: ["public-staff-availability"],
+      });
+      // Invalidate all available slots queries
+      queryClient.invalidateQueries({
+        queryKey: ["available-slots"],
+      });
+      // Also invalidate public appointments and time blocks to ensure fresh data
+      queryClient.invalidateQueries({
+        queryKey: ["public-appointments"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["public-time-blocks"],
       });
       toast.success("Disponibilidad guardada correctamente");
     },
