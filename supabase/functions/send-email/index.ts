@@ -54,6 +54,7 @@ interface AppointmentData {
     address: string | null;
     phone: string | null;
     brand_accent: string;
+    timezone?: string;
   };
   services: {
     name: string;
@@ -157,6 +158,7 @@ const generateEmailHtml = (
   `;
 
   const servicesList = data.services.map(s => `${s.name} - $${s.price}`).join("<br>");
+  const tz = data.barbershop.timezone || "America/New_York";
   
   let title = "";
   let subtitle = "";
@@ -207,10 +209,10 @@ const generateEmailHtml = (
             <h3 style="margin-top: 0; color: #1a1a1a;">Detalles de tu cita</h3>
             
             <p style="margin: 8px 0;">
-              <strong>📅 Fecha:</strong> ${formatDate(data.start_at)}
+              <strong>📅 Fecha:</strong> ${formatDate(data.start_at, tz)}
             </p>
             <p style="margin: 8px 0;">
-              <strong>🕐 Hora:</strong> ${formatTime(data.start_at)}
+              <strong>🕐 Hora:</strong> ${formatTime(data.start_at, tz)}
             </p>
             <p style="margin: 8px 0;">
               <strong>✂️ Servicios:</strong><br>${servicesList}
@@ -285,6 +287,12 @@ const handler = async (req: Request): Promise<Response> => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { type, appointmentId }: EmailRequest = await req.json();
+    if (!type || !appointmentId) {
+      return new Response(
+        JSON.stringify({ error: "Missing type or appointmentId" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
     console.log(`Processing ${type} email for appointment ${appointmentId}`);
 
     // Fetch appointment with client and barbershop data (without staff join)
@@ -336,6 +344,8 @@ const handler = async (req: Request): Promise<Response> => {
     const expiresAt = new Date(appointment.start_at);
     expiresAt.setHours(expiresAt.getHours() + 24);
 
+    let manageTokenToUse = manageToken;
+
     // Create tokens for confirm, cancel, and manage
     if (type === "confirmation") {
       // Delete existing tokens for this appointment
@@ -371,9 +381,10 @@ const handler = async (req: Request): Promise<Response> => {
       if (linkError) {
         console.error("Error creating links:", linkError);
       }
+      manageTokenToUse = manageToken;
     } else {
       // For other email types, get existing manage token or create new one
-      const { data: existingLink } = await supabase
+      const { data: existingLink, error: existingLinkError } = await supabase
         .from("appointment_links")
         .select("token")
         .eq("appointment_id", appointmentId)
@@ -381,8 +392,14 @@ const handler = async (req: Request): Promise<Response> => {
         .gt("expires_at", new Date().toISOString())
         .maybeSingle();
 
-      if (!existingLink) {
-        await supabase
+      if (existingLinkError) {
+        console.error("Error fetching manage token:", existingLinkError);
+      }
+
+      if (existingLink?.token) {
+        manageTokenToUse = existingLink.token;
+      } else {
+        const { error: insertManageError } = await supabase
           .from("appointment_links")
           .insert({
             appointment_id: appointmentId,
@@ -390,6 +407,12 @@ const handler = async (req: Request): Promise<Response> => {
             purpose: "manage",
             expires_at: expiresAt.toISOString(),
           });
+
+        if (insertManageError) {
+          console.error("Error creating manage token:", insertManageError);
+        } else {
+          manageTokenToUse = manageToken;
+        }
       }
     }
 
@@ -402,13 +425,7 @@ const handler = async (req: Request): Promise<Response> => {
     const baseUrl = appUrl || "http://localhost:5173";
     const confirmUrl = `${baseUrl}/confirm/${confirmToken}`;
     const cancelUrl = `${baseUrl}/confirm/${cancelToken}?action=cancel`;
-    const manageUrl = `${baseUrl}/m/${type === "confirmation" ? manageToken : (await supabase
-      .from("appointment_links")
-      .select("token")
-      .eq("appointment_id", appointmentId)
-      .eq("purpose", "manage")
-      .gt("expires_at", new Date().toISOString())
-      .maybeSingle()).data?.token || manageToken}`;
+    const manageUrl = `${baseUrl}/m/${manageTokenToUse}`;
 
     // Prepare data for email
     const clientData = Array.isArray(appointment.client) ? appointment.client[0] : appointment.client;
@@ -422,7 +439,7 @@ const handler = async (req: Request): Promise<Response> => {
       total_price_estimated: appointment.total_price_estimated,
       client: clientData,
       staff: staffData,
-      barbershop: barbershopData,
+      barbershop: { ...barbershopData, timezone: barbershopData?.timezone },
       services: appointment.appointment_services.map((as: any) => ({
         name: as.service.name,
         price: as.service.price,
@@ -447,7 +464,13 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Generate HTML
-    const html = generateEmailHtml(type, emailData, confirmUrl, cancelUrl, manageUrl);
+    const html = generateEmailHtml(
+      type,
+      emailData,
+      confirmUrl,
+      cancelUrl,
+      manageUrl
+    );
 
     // Send email
     const { data: emailResult, error: emailError } = await resend.emails.send({

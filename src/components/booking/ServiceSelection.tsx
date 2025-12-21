@@ -1,15 +1,17 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Clock, Check, ArrowRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import type { SelectedService } from "@/pages/booking/PublicBooking";
-import type { PublicService } from "@/hooks/usePublicBooking";
+import type { PublicService, PublicBarbershop } from "@/hooks/usePublicBooking";
+import { useI18n } from "@/i18n";
 
 interface ServiceSelectionProps {
   services: PublicService[];
   selectedServices: SelectedService[];
   onServicesChange: (services: SelectedService[]) => void;
   onNext: () => void;
+  barbershop?: PublicBarbershop | null;
 }
 
 export function ServiceSelection({
@@ -17,7 +19,9 @@ export function ServiceSelection({
   selectedServices,
   onServicesChange,
   onNext,
+  barbershop,
 }: ServiceSelectionProps) {
+  const { t, lang } = useI18n();
   const toggleService = (service: PublicService) => {
     const isSelected = selectedServices.some((s) => s.id === service.id);
     if (isSelected) {
@@ -44,15 +48,11 @@ export function ServiceSelection({
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">
-            ¿Qué servicio necesitas?
-          </h1>
-          <p className="mt-1 text-muted-foreground">
-            Selecciona uno o más servicios
-          </p>
+          <h1 className="font-display text-2xl font-bold text-foreground">{t("service.title" as any)}</h1>
+          <p className="mt-1 text-muted-foreground">{t("service.subtitle" as any)}</p>
         </div>
         <div className="rounded-lg bg-muted p-8 text-center text-muted-foreground">
-          No hay servicios disponibles en este momento.
+          {t("service.empty" as any)}
         </div>
       </div>
     );
@@ -61,12 +61,8 @@ export function ServiceSelection({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-bold text-foreground">
-          ¿Qué servicio necesitas?
-        </h1>
-        <p className="mt-1 text-muted-foreground">
-          Selecciona uno o más servicios
-        </p>
+        <h1 className="font-display text-2xl font-bold text-foreground">{t("service.title" as any)}</h1>
+        <p className="mt-1 text-muted-foreground">{t("service.subtitle" as any)}</p>
       </div>
 
       <div className="grid gap-3">
@@ -97,7 +93,7 @@ export function ServiceSelection({
               </div>
               <div className="flex items-center gap-3">
                 <span className="font-display text-lg font-bold text-foreground">
-                  ${service.price}
+                  {formatCurrency(service.price, barbershop?.currency || "USD", lang)}
                 </span>
                 <div
                   className={cn(
@@ -123,10 +119,10 @@ export function ServiceSelection({
           <div className="container mx-auto flex items-center justify-between gap-4 md:flex-col md:items-stretch">
             <div className="text-sm md:flex md:items-center md:justify-between md:rounded-lg md:bg-muted md:p-4">
               <span className="text-muted-foreground">
-                {selectedServices.length} servicio(s) • {totalDuration} min
+                {selectedServices.length} {t("service.selected" as any)} • {totalDuration} min
               </span>
               <span className="font-display text-lg font-bold md:ml-4">
-                Total: ${totalPrice}
+                {t("service.total" as any)}: {formatCurrency(totalPrice, barbershop?.currency || "USD", lang)}
               </span>
             </div>
             <Button
@@ -135,7 +131,7 @@ export function ServiceSelection({
               onClick={onNext}
               className="shrink-0"
             >
-              Continuar
+              {t("service.continue" as any)}
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </div>

@@ -51,7 +51,7 @@ const Dashboard = () => {
           {/* Header */}
           <header className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b bg-background px-4">
             <SidebarTrigger className="hidden md:flex" />
-            <DashboardHeader />
+            <DashboardHeader onSettingsClick={() => setActiveTab("settings")} />
           </header>
           
           {/* Main content */}

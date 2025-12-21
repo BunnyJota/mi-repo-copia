@@ -163,7 +163,7 @@ export function ServiceFormDialog({
                 name="price"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Precio (USD)</FormLabel>
+                    <FormLabel>Precio ({barbershop?.currency || "USD"})</FormLabel>
                     <FormControl>
                       <Input
                         type="number"

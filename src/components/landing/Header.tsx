@@ -4,14 +4,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/layout/Logo";
 import { Menu, X } from "lucide-react";
+import { LanguageToggle, useI18n } from "@/i18n";
 
 const navLinks = [
-  { href: "#features", label: "Funciones" },
-  { href: "#pricing", label: "Precios" },
+  { href: "#features", labelKey: "nav.features" },
+  { href: "#pricing", labelKey: "nav.pricing" },
 ];
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { t } = useI18n();
 
   return (
     <header className="fixed left-0 right-0 top-0 z-50 bg-background/80 backdrop-blur-md">
@@ -28,17 +30,18 @@ export function Header() {
               href={link.href}
               className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
-              {link.label}
+              {t(link.labelKey as any)}
             </a>
           ))}
+          <LanguageToggle />
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
           <Button variant="ghost" asChild>
-            <Link to="/login">Iniciar sesión</Link>
+            <Link to="/login">{t("nav.login" as any)}</Link>
           </Button>
           <Button variant="default" asChild>
-            <Link to="/register">Registrar barbería</Link>
+            <Link to="/register">{t("nav.register" as any)}</Link>
           </Button>
         </div>
 
@@ -71,20 +74,23 @@ export function Header() {
                     className="font-display text-2xl font-semibold text-foreground"
                     onClick={() => setMobileMenuOpen(false)}
                   >
-                    {link.label}
+                    {t(link.labelKey as any)}
                   </a>
                 ))}
                 <div className="mt-8 flex flex-col gap-4">
                   <Button variant="outline" size="lg" asChild>
                     <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
-                      Iniciar sesión
+                      {t("nav.login" as any)}
                     </Link>
                   </Button>
                   <Button variant="default" size="lg" asChild>
                     <Link to="/register" onClick={() => setMobileMenuOpen(false)}>
-                      Registrar barbería
+                      {t("nav.register" as any)}
                     </Link>
                   </Button>
+                  <div className="flex justify-center">
+                    <LanguageToggle />
+                  </div>
                 </div>
               </div>
             </motion.div>

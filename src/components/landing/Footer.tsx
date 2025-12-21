@@ -1,7 +1,10 @@
 import { Logo } from "@/components/layout/Logo";
 import { Link } from "react-router-dom";
+import { useI18n } from "@/i18n";
 
 export function Footer() {
+  const { t } = useI18n();
+
   return (
     <footer className="border-t bg-background py-12">
       <div className="container">
@@ -13,38 +16,38 @@ export function Footer() {
               href="#features"
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
-              Características
+              {t("footer.features" as any)}
             </a>
             <a
               href="#pricing"
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
-              Precios
+              {t("footer.pricing" as any)}
             </a>
             <Link
               to="/contact"
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
-              Contacto
+              {t("footer.contact" as any)}
             </Link>
             <Link
               to="/privacy"
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
-              Privacidad
+              {t("footer.privacy" as any)}
             </Link>
             <Link
               to="/terms"
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
-              Términos
+              {t("footer.terms" as any)}
             </Link>
           </div>
         </div>
         
         <div className="mt-8 border-t pt-8">
           <p className="text-center text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Trimly. Todos los derechos reservados.
+            © {new Date().getFullYear()} Trimly. {t("footer.copyright" as any)}
           </p>
         </div>
       </div>

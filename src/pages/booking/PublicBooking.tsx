@@ -13,6 +13,7 @@ import { MapPin, Phone, AlertCircle } from "lucide-react";
 import { useBarbershopBySlug, usePublicServices, usePublicStaff, useCreateBooking } from "@/hooks/usePublicBooking";
 import { addMinutes } from "date-fns";
 import { toast } from "sonner";
+import { LanguageToggle } from "@/i18n";
 
 export type BookingStep = 1 | 2 | 3 | 4 | 5;
 
@@ -33,6 +34,7 @@ export interface SelectedBarber {
 export interface SelectedDateTime {
   date: Date;
   time: string;
+  availableStaffUserIds?: string[];
 }
 
 export interface ClientData {
@@ -75,13 +77,29 @@ const PublicBooking = () => {
   const handleConfirmBooking = async (data: ClientData) => {
     if (!barbershop || !selectedDateTime || !selectedBarber) return;
 
+    // Demo mode - don't create real booking
+    const isDemo = barbershop.id === "demo-barbershop-id";
+    
+    if (isDemo) {
+      // Simulate booking creation for demo
+      setClientData(data);
+      setBookingId("demo-booking-id");
+      setCurrentStep(5);
+      toast.success("¡Esta es una vista previa! En una reserva real, recibirías un email de confirmación.");
+      return;
+    }
+
     // Determine which staff member to assign
     let staffUserId = selectedBarber.userId;
     
     if (selectedBarber.id === "any" && staff && staff.length > 0) {
-      // For "any" selection, we'll assign the first available staff
-      // In a real scenario, this would be determined by the availability calculation
-      staffUserId = staff[0].user_id;
+      // Try to use an actually available staff for the chosen slot
+      if (selectedDateTime.availableStaffUserIds && selectedDateTime.availableStaffUserIds.length > 0) {
+        staffUserId = selectedDateTime.availableStaffUserIds[0];
+      } else {
+        // Fallback: first active staff
+        staffUserId = staff[0].user_id;
+      }
     }
 
     if (!staffUserId) {
@@ -161,18 +179,35 @@ const PublicBooking = () => {
     );
   }
 
+  const isDemo = barbershop.id === "demo-barbershop-id";
+
   return (
     <div className="min-h-screen bg-surface-sunken">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur-sm">
         <div className="container flex h-16 items-center justify-between">
           <Logo />
-          <span className="font-display text-lg font-semibold">{barbershop.name}</span>
+          <div className="flex items-center gap-3">
+            <LanguageToggle />
+            <span className="font-display text-lg font-semibold">{barbershop.name}</span>
+          </div>
         </div>
       </header>
 
       <main className="container py-6">
         <div className="mx-auto max-w-2xl">
+          {/* Demo banner */}
+          {isDemo && (
+            <div className="mb-6 rounded-lg border-2 border-primary/20 bg-primary/5 p-4 text-center">
+              <p className="text-sm font-medium text-primary">
+                🎬 Vista previa - Esta es una demostración interactiva
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Puedes explorar todo el proceso de reserva, pero no se creará ninguna cita real
+              </p>
+            </div>
+          )}
+
           {/* Barbershop info */}
           <div className="mb-6 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
             {barbershop.address && (
@@ -209,6 +244,7 @@ const PublicBooking = () => {
                   selectedServices={selectedServices}
                   onServicesChange={setSelectedServices}
                   onNext={handleNextStep}
+                  barbershop={barbershop}
                 />
               )}
               {currentStep === 2 && (
@@ -238,6 +274,7 @@ const PublicBooking = () => {
                   selectedBarber={selectedBarber}
                   selectedDateTime={selectedDateTime}
                   totalPrice={totalPrice}
+                  barbershop={barbershop}
                   onConfirm={handleConfirmBooking}
                   onBack={handlePrevStep}
                   isSubmitting={createBooking.isPending}
@@ -246,6 +283,7 @@ const PublicBooking = () => {
               {currentStep === 5 && clientData && (
                 <BookingConfirmation
                   barbershopName={barbershop.name}
+                  barbershop={barbershop}
                   clientData={clientData}
                   selectedServices={selectedServices}
                   selectedBarber={selectedBarber}

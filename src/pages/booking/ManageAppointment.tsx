@@ -41,13 +41,15 @@ import {
 } from "@/hooks/useManageAppointment";
 import { useAvailableSlots, usePublicStaff } from "@/hooks/usePublicBooking";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 type ManageView = "details" | "reschedule";
 
 const ManageAppointment = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
+  const { lang } = useI18n();
   const { data, isLoading } = useAppointmentByToken(token);
   const cancelMutation = useCancelAppointment();
   const rescheduleMutation = useRescheduleAppointment();
@@ -308,7 +310,7 @@ const ManageAppointment = () => {
                       <div className="flex items-center justify-between">
                         <span className="font-medium">Total a pagar</span>
                         <span className="font-display text-xl font-bold text-primary">
-                          ${appointment.total_price_estimated}
+                          {formatCurrency(appointment.total_price_estimated, appointment.barbershop?.currency || "USD", lang)}
                         </span>
                       </div>
                     </div>

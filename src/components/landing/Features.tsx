@@ -10,49 +10,7 @@ import {
   Zap,
   Users
 } from "lucide-react";
-
-const features = [
-  {
-    icon: CalendarClock,
-    title: "Reservas Online 24/7",
-    description: "Tus clientes pueden reservar en cualquier momento. Sin llamadas, sin esperas.",
-  },
-  {
-    icon: Zap,
-    title: "Disponibilidad Inteligente",
-    description: "Motor de slots que evita solapes y respeta tus horarios automáticamente.",
-  },
-  {
-    icon: Users,
-    title: "Gestión de Staff",
-    description: "Cada barbero ve su agenda. Asigna servicios y controla disponibilidad.",
-  },
-  {
-    icon: Smartphone,
-    title: "Móvil First",
-    description: "Panel optimizado para operar desde tu celular. Rápido y sin fricciones.",
-  },
-  {
-    icon: Bell,
-    title: "Recordatorios Automáticos",
-    description: "Emails 24h y 2h antes. Reduce no-shows hasta un 70%.",
-  },
-  {
-    icon: BarChart3,
-    title: "Reportes Claros",
-    description: "Ingresos por barbero, por servicio. Exporta a CSV cuando quieras.",
-  },
-  {
-    icon: BadgeDollarSign,
-    title: "Sin Comisiones",
-    description: "Cobra en efectivo o tarjeta. Nosotros no tocamos tu dinero.",
-  },
-  {
-    icon: Link2,
-    title: "Tu Marca, Tu Link",
-    description: "Página pública personalizada con tu logo y colores, lista para compartir.",
-  },
-];
+import { useI18n } from "@/i18n";
 
 const container = {
   hidden: { opacity: 0 },
@@ -70,6 +28,51 @@ const item = {
 };
 
 export function Features() {
+  const { t } = useI18n();
+
+  const features = [
+    {
+      icon: CalendarClock,
+      titleKey: "features.onlineBookings.title",
+      descriptionKey: "features.onlineBookings.description",
+    },
+    {
+      icon: Zap,
+      titleKey: "features.smartAvailability.title",
+      descriptionKey: "features.smartAvailability.description",
+    },
+    {
+      icon: Users,
+      titleKey: "features.staffManagement.title",
+      descriptionKey: "features.staffManagement.description",
+    },
+    {
+      icon: Smartphone,
+      titleKey: "features.mobileFirst.title",
+      descriptionKey: "features.mobileFirst.description",
+    },
+    {
+      icon: Bell,
+      titleKey: "features.automaticReminders.title",
+      descriptionKey: "features.automaticReminders.description",
+    },
+    {
+      icon: BarChart3,
+      titleKey: "features.clearReports.title",
+      descriptionKey: "features.clearReports.description",
+    },
+    {
+      icon: BadgeDollarSign,
+      titleKey: "features.noCommissions.title",
+      descriptionKey: "features.noCommissions.description",
+    },
+    {
+      icon: Link2,
+      titleKey: "features.customBrand.title",
+      descriptionKey: "features.customBrand.description",
+    },
+  ];
+
   return (
     <section className="bg-surface-sunken py-20 md:py-32" id="features">
       <div className="container">
@@ -80,7 +83,7 @@ export function Features() {
             viewport={{ once: true }}
             className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl"
           >
-            Todo lo que necesitas para crecer
+            {t("features.title" as any)}
           </motion.h2>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -89,7 +92,7 @@ export function Features() {
             transition={{ delay: 0.1 }}
             className="mt-4 text-lg text-muted-foreground"
           >
-            Herramientas diseñadas específicamente para barberías. Simples, potentes y siempre disponibles.
+            {t("features.subtitle" as any)}
           </motion.p>
         </div>
 
@@ -100,18 +103,18 @@ export function Features() {
           viewport={{ once: true }}
           className="mx-auto mt-16 grid max-w-5xl gap-6 md:grid-cols-2 lg:grid-cols-4"
         >
-          {features.map((feature) => (
-            <motion.div key={feature.title} variants={item}>
+          {features.map((feature, index) => (
+            <motion.div key={index} variants={item}>
               <Card variant="interactive" className="h-full">
                 <CardContent className="p-6">
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
                     <feature.icon className="h-6 w-6 text-primary" />
                   </div>
                   <h3 className="mt-4 font-display text-lg font-semibold text-foreground">
-                    {feature.title}
+                    {t(feature.titleKey as any)}
                   </h3>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    {feature.description}
+                    {t(feature.descriptionKey as any)}
                   </p>
                 </CardContent>
               </Card>

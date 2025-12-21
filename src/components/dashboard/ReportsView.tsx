@@ -23,10 +23,12 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 export function ReportsView() {
   const { barbershop } = useUserData();
+  const { lang } = useI18n();
   const [period, setPeriod] = useState<ReportPeriod>("month");
   const [customStart, setCustomStart] = useState<Date | undefined>();
   const [customEnd, setCustomEnd] = useState<Date | undefined>();
@@ -216,7 +218,7 @@ export function ReportsView() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Ingresos Totales</p>
-                    <p className="mt-1 text-2xl font-bold">${reportData.summary.totalRevenue.toFixed(2)}</p>
+                    <p className="mt-1 text-2xl font-bold">{formatCurrency(reportData.summary.totalRevenue, barbershop?.currency || "USD", lang)}</p>
                   </div>
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
                     <DollarSign className="h-6 w-6 text-primary" />
@@ -253,13 +255,13 @@ export function ReportsView() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Pagados</span>
                   <span className="font-semibold text-success">
-                    ${reportData.summary.paidRevenue.toFixed(2)}
+                    {formatCurrency(reportData.summary.paidRevenue, barbershop?.currency || "USD", lang)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Pendientes</span>
                   <span className="font-semibold text-warning">
-                    ${reportData.summary.unpaidRevenue.toFixed(2)}
+                    {formatCurrency(reportData.summary.unpaidRevenue, barbershop?.currency || "USD", lang)}
                   </span>
                 </div>
               </CardContent>
@@ -321,10 +323,10 @@ export function ReportsView() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold">${staff.revenue.toFixed(2)}</p>
+                        <p className="font-semibold">{formatCurrency(staff.revenue, barbershop?.currency || "USD", lang)}</p>
                         {staff.commission !== undefined && (
                           <p className="text-xs text-muted-foreground">
-                            Comisión: ${staff.commission.toFixed(2)}
+                            Comisión: {formatCurrency(staff.commission, barbershop?.currency || "USD", lang)}
                           </p>
                         )}
                       </div>
@@ -363,7 +365,7 @@ export function ReportsView() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold">${service.revenue.toFixed(2)}</p>
+                        <p className="font-semibold">{formatCurrency(service.revenue, barbershop?.currency || "USD", lang)}</p>
                       </div>
                     </div>
                   ))}

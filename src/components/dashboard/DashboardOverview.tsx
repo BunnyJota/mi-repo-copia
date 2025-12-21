@@ -26,10 +26,11 @@ import { useTodayAppointments, useAppointmentStats } from "@/hooks/useAppointmen
 import { useUserData } from "@/hooks/useUserData";
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
-import { getAppUrl } from "@/lib/utils";
+import { getAppUrl, formatCurrency } from "@/lib/utils";
 import { DashboardTab } from "@/pages/dashboard/Dashboard";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useI18n } from "@/i18n";
 
 interface DashboardOverviewProps {
   onTabChange?: (tab: DashboardTab) => void;
@@ -37,6 +38,7 @@ interface DashboardOverviewProps {
 
 export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
   const { profile, barbershop, loading: userLoading } = useUserData();
+  const { lang } = useI18n();
   const queryClient = useQueryClient();
   const { data: todayAppointments, isLoading: appointmentsLoading } = useTodayAppointments({
     refetchInterval: 15000, // Refetch every 15 seconds for real-time updates
@@ -263,11 +265,11 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
                   <div className="flex-1">
                     <p className="text-sm text-muted-foreground">Ingresos del día</p>
                     <p className="font-display text-2xl font-bold">
-                      ${stats?.todayRevenue?.toFixed(0) ?? 0}
+                      {formatCurrency(stats?.todayRevenue || 0, barbershop?.currency || "USD", lang)}
                     </p>
                     {stats?.todayPaidRevenue !== undefined && stats.todayPaidRevenue > 0 && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        ${stats.todayPaidRevenue.toFixed(0)} pagados
+                        {formatCurrency(stats.todayPaidRevenue, barbershop?.currency || "USD", lang)} pagados
                       </p>
                     )}
                   </div>
@@ -320,7 +322,7 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
                   <div className="flex-1">
                     <p className="text-sm text-muted-foreground">Ingresos del mes</p>
                     <p className="font-display text-2xl font-bold">
-                      ${stats?.monthRevenue?.toFixed(0) ?? 0}
+                      {formatCurrency(stats?.monthRevenue || 0, barbershop?.currency || "USD", lang)}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">Citas completadas</p>
                   </div>
@@ -436,7 +438,7 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
                         </p>
                         <span className="text-xs text-muted-foreground">•</span>
                         <p className="text-xs font-medium text-foreground">
-                          ${apt.total_price_estimated.toFixed(2)}
+                          {formatCurrency(apt.total_price_estimated, barbershop?.currency || "USD", lang)}
                         </p>
                       </div>
                     </div>

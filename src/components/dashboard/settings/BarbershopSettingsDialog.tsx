@@ -12,6 +12,7 @@ import { useUserData } from "@/hooks/useUserData";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface BarbershopSettingsDialogProps {
   open: boolean;
@@ -27,6 +28,7 @@ export function BarbershopSettingsDialog({ open, onOpenChange }: BarbershopSetti
     phone: "",
     address: "",
     brand_accent: "#E45500",
+    currency: "USD",
   });
 
   useEffect(() => {
@@ -36,6 +38,7 @@ export function BarbershopSettingsDialog({ open, onOpenChange }: BarbershopSetti
         phone: barbershop.phone || "",
         address: barbershop.address || "",
         brand_accent: barbershop.brand_accent || "#E45500",
+        currency: barbershop.currency || "USD",
       });
     }
   }, [barbershop]);
@@ -65,6 +68,7 @@ export function BarbershopSettingsDialog({ open, onOpenChange }: BarbershopSetti
           phone: formData.phone || null,
           address: formData.address || null,
           brand_accent: formData.brand_accent,
+          currency: formData.currency,
           updated_at: new Date().toISOString(),
         })
         .eq("id", barbershop.id);
@@ -133,6 +137,23 @@ export function BarbershopSettingsDialog({ open, onOpenChange }: BarbershopSetti
               />
               <span className="text-sm text-muted-foreground">{formData.brand_accent}</span>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="currency">Divisa</Label>
+            <Select
+              value={formData.currency}
+              onValueChange={(value) => setFormData({ ...formData, currency: value })}
+            >
+              <SelectTrigger id="currency">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="USD">USD</SelectItem>
+                <SelectItem value="EUR">EUR</SelectItem>
+                <SelectItem value="DOP">DOP</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex justify-end gap-2 pt-4">

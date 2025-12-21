@@ -13,7 +13,11 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserData } from "@/hooks/useUserData";
 
-export function DashboardHeader() {
+interface DashboardHeaderProps {
+  onSettingsClick?: () => void;
+}
+
+export function DashboardHeader({ onSettingsClick }: DashboardHeaderProps) {
   const { signOut } = useAuth();
   const { profile, barbershop, subscription, trialDaysRemaining, loading } = useUserData();
   const navigate = useNavigate();
@@ -21,6 +25,15 @@ export function DashboardHeader() {
   const handleSignOut = async () => {
     await signOut();
     navigate("/");
+  };
+
+  const handleSettingsClick = () => {
+    if (onSettingsClick) {
+      onSettingsClick();
+    } else {
+      // Fallback: usar evento personalizado
+      window.dispatchEvent(new CustomEvent("navigate-to-settings"));
+    }
   };
 
   const getInitials = (name: string | null) => {
@@ -93,7 +106,7 @@ export function DashboardHeader() {
               <User className="mr-2 h-4 w-4" />
               Mi perfil
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handleSettingsClick}>
               <Settings className="mr-2 h-4 w-4" />
               Configuración
             </DropdownMenuItem>
