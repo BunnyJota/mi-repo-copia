@@ -565,92 +565,136 @@ interface CreateBookingData {
   totalPrice: number;
 }
 
+const missingSupabaseConfig =
+  !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+function mapBookingError(error: unknown): Error {
+  const code = (error as any)?.code ?? (error as any)?.status;
+
+  if (error instanceof Error && error.message === "MISSING_SUPABASE_CONFIG") {
+    return new Error(
+      "Falta configurar Supabase (VITE_SUPABASE_URL y VITE_SUPABASE_PUBLISHABLE_KEY) en el despliegue."
+    );
+  }
+
+  if (code === "42501") {
+    return new Error(
+      "La base de datos bloqueó la operación por políticas RLS. Revisa que las políticas permitan inserts públicos en clients/appointments."
+    );
+  }
+
+  if (code === "401" || code === 401) {
+    return new Error(
+      "No autorizado con Supabase (401). Verifica que la clave pública y la URL estén bien configuradas."
+    );
+  }
+
+  if (error instanceof Error) return error;
+  if (typeof (error as any)?.message === "string") return new Error((error as any).message);
+
+  return new Error("No se pudo crear la cita. Intenta de nuevo.");
+}
+
 export function useCreateBooking() {
   return useMutation({
     mutationFn: async (data: CreateBookingData) => {
-      // First, create or find the client
-      const { data: existingClient } = await supabase
-        .from("clients")
-        .select("id")
-        .eq("barbershop_id", data.barbershopId)
-        .eq("email", data.clientEmail)
-        .maybeSingle();
-
-      let clientId: string;
-
-      if (existingClient) {
-        clientId = existingClient.id;
-        // Update phone if provided
-        if (data.clientPhone) {
-          await supabase
-            .from("clients")
-            .update({ phone: data.clientPhone, name: data.clientName })
-            .eq("id", clientId);
+      try {
+        if (missingSupabaseConfig) {
+          throw new Error("MISSING_SUPABASE_CONFIG");
         }
-      } else {
-        const { data: newClient, error: clientError } = await supabase
+
+        // First, create or find the client
+        const { data: existingClient, error: clientLookupError } = await supabase
           .from("clients")
+          .select("id")
+          .eq("barbershop_id", data.barbershopId)
+          .eq("email", data.clientEmail)
+          .maybeSingle();
+
+        if (clientLookupError) throw clientLookupError;
+
+        let clientId: string;
+
+        if (existingClient) {
+          clientId = existingClient.id;
+          // Update phone if provided (best-effort)
+          if (data.clientPhone) {
+            const { error: updateError } = await supabase
+              .from("clients")
+              .update({ phone: data.clientPhone, name: data.clientName })
+              .eq("id", clientId);
+
+            if (updateError) {
+              console.warn("No se pudo actualizar el teléfono del cliente:", updateError);
+            }
+          }
+        } else {
+          const { data: newClient, error: clientError } = await supabase
+            .from("clients")
+            .insert({
+              barbershop_id: data.barbershopId,
+              name: data.clientName,
+              email: data.clientEmail,
+              phone: data.clientPhone || null,
+            })
+            .select("id")
+            .single();
+
+          if (clientError) throw clientError;
+          clientId = newClient.id;
+        }
+
+        // Create appointment with pending status (client must confirm via email)
+        const { data: appointment, error: appointmentError } = await supabase
+          .from("appointments")
           .insert({
             barbershop_id: data.barbershopId,
-            name: data.clientName,
-            email: data.clientEmail,
-            phone: data.clientPhone || null,
+            client_id: clientId,
+            staff_user_id: data.staffUserId,
+            start_at: data.startAt.toISOString(),
+            end_at: data.endAt.toISOString(),
+            total_price_estimated: data.totalPrice,
+            status: "pending",
           })
           .select("id")
           .single();
 
-        if (clientError) throw clientError;
-        clientId = newClient.id;
-      }
+        if (appointmentError) throw appointmentError;
 
-      // Create appointment with pending status (client must confirm via email)
-      const { data: appointment, error: appointmentError } = await supabase
-        .from("appointments")
-        .insert({
-          barbershop_id: data.barbershopId,
-          client_id: clientId,
-          staff_user_id: data.staffUserId,
-          start_at: data.startAt.toISOString(),
-          end_at: data.endAt.toISOString(),
-          total_price_estimated: data.totalPrice,
-          status: "pending",
-        })
-        .select("id")
-        .single();
+        // Add services to appointment
+        const appointmentServices = data.serviceIds.map((serviceId) => ({
+          appointment_id: appointment.id,
+          service_id: serviceId,
+          qty: 1,
+        }));
 
-      if (appointmentError) throw appointmentError;
+        const { error: servicesError } = await supabase
+          .from("appointment_services")
+          .insert(appointmentServices);
 
-      // Add services to appointment
-      const appointmentServices = data.serviceIds.map((serviceId) => ({
-        appointment_id: appointment.id,
-        service_id: serviceId,
-        qty: 1,
-      }));
+        if (servicesError) throw servicesError;
 
-      const { error: servicesError } = await supabase
-        .from("appointment_services")
-        .insert(appointmentServices);
+        // Send confirmation email via edge function
+        try {
+          const { error: emailError } = await supabase.functions.invoke("send-email", {
+            body: {
+              type: "confirmation",
+              appointmentId: appointment.id,
+            },
+          });
 
-      if (servicesError) throw servicesError;
-
-      // Send confirmation email via edge function
-      try {
-        const { error: emailError } = await supabase.functions.invoke("send-email", {
-          body: {
-            type: "confirmation",
-            appointmentId: appointment.id,
-          },
-        });
-
-        if (emailError) {
-          console.error("Error sending confirmation email:", emailError);
-          // Don't throw - appointment was created successfully
+          if (emailError) {
+            console.error("Error sending confirmation email:", emailError);
+            // Don't throw - appointment was created successfully
+          }
+        } catch (emailErr) {
+          console.error("Failed to send email:", emailErr);
         }
-      } catch (emailErr) {
-        console.error("Failed to send email:", emailErr);
-      }
 
-      return appointment;
+        return appointment;
+      } catch (error) {
+        throw mapBookingError(error);
+      }
     },
   });
 }

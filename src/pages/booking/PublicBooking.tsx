@@ -132,7 +132,11 @@ const PublicBooking = () => {
       toast.success("¡Cita reservada con éxito!");
     } catch (error) {
       console.error("Error creating booking:", error);
-      toast.error("Error al crear la cita. Por favor intenta de nuevo.");
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Error al crear la cita. Por favor intenta de nuevo.";
+      toast.error(message);
     }
   };
 
