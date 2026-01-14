@@ -14,6 +14,7 @@ import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import NotFound from "./pages/NotFound";
 import EmailConfirmed from "./pages/auth/EmailConfirmed";
+import SubscriptionCallback from "./pages/subscription/SubscriptionCallback";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,14 @@ const App = () => (
             <Route path="/b/:slug" element={<PublicBooking />} />
             <Route path="/m/:token" element={<ManageAppointment />} />
             <Route path="/confirm/:token" element={<ConfirmAppointment />} />
+            <Route
+              path="/subscription/callback"
+              element={
+                <ProtectedRoute>
+                  <SubscriptionCallback />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/dashboard"
               element={
