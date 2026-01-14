@@ -14,10 +14,22 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useUserData } from "@/hooks/useUserData";
+import { useCreateSubscription, useCancelSubscription } from "@/hooks/useSubscription";
 import { BarbershopSettingsDialog } from "./settings/BarbershopSettingsDialog";
 import { HoursSettingsDialog } from "./settings/HoursSettingsDialog";
 import { NotificationsSettingsDialog } from "./settings/NotificationsSettingsDialog";
 import { getAppUrl } from "@/lib/utils";
+import { Loader2, X } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 import type { DashboardTab } from "@/pages/dashboard/Dashboard";
 
@@ -30,6 +42,9 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
   const [barbershopDialogOpen, setBarbershopDialogOpen] = useState(false);
   const [hoursDialogOpen, setHoursDialogOpen] = useState(false);
   const [notificationsDialogOpen, setNotificationsDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const createSubscription = useCreateSubscription();
+  const cancelSubscription = useCancelSubscription();
 
   useEffect(() => {
     const handler = () => setBarbershopDialogOpen(true);
@@ -77,7 +92,49 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
     if (subscription.status === "past_due") {
       return <Badge variant="destructive">Pago pendiente</Badge>;
     }
+    if (subscription.status === "canceled") {
+      return <Badge variant="outline">Cancelado</Badge>;
+    }
     return null;
+  };
+
+  const handleActivateSubscription = () => {
+    createSubscription.mutate();
+  };
+
+  const handleCancelSubscription = () => {
+    setCancelDialogOpen(true);
+  };
+
+  const confirmCancelSubscription = () => {
+    cancelSubscription.mutate();
+    setCancelDialogOpen(false);
+  };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "";
+    try {
+      return new Date(dateString).toLocaleDateString("es-ES", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    } catch {
+      return "";
+    }
+  };
+
+  const formatDateShort = (dateString: string | null) => {
+    if (!dateString) return "";
+    try {
+      return new Date(dateString).toLocaleDateString("es-ES", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    } catch {
+      return "";
+    }
   };
 
   const publicUrl = barbershop?.slug 
@@ -96,23 +153,90 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
       {/* Subscription card */}
       <Card className="border-primary/20 bg-primary/5">
         <CardContent className="p-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-primary" />
-                <span className="font-display font-semibold">Suscripción</span>
+          <div className="space-y-4">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5 text-primary" />
+                  <span className="font-display font-semibold">Suscripción</span>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Plan Profesional - $10 USD/mes
+                </p>
+                <div className="mt-2">
+                  {getSubscriptionBadge()}
+                </div>
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Plan Profesional
-              </p>
-              <div className="mt-2">
-                {getSubscriptionBadge()}
+              <div className="ml-4 flex gap-2">
+                {subscription?.status === "trial" && (
+                  <Button 
+                    variant="default" 
+                    size="sm"
+                    onClick={handleActivateSubscription}
+                    disabled={createSubscription.isPending}
+                  >
+                    {createSubscription.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Procesando...
+                      </>
+                    ) : (
+                      "Activar"
+                    )}
+                  </Button>
+                )}
+                {subscription?.status === "active" && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleCancelSubscription}
+                    disabled={cancelSubscription.isPending}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    {cancelSubscription.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Cancelando...
+                      </>
+                    ) : (
+                      <>
+                        <X className="mr-2 h-4 w-4" />
+                        Cancelar
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
-            {subscription?.status === "trial" && (
-              <Button variant="default" size="sm">
-                Activar
-              </Button>
+            {subscription?.status === "active" && subscription.current_period_end && (
+              <div className="pt-3 border-t border-primary/10">
+                <p className="text-sm font-medium text-foreground">
+                  Próxima fecha de pago
+                </p>
+                <p className="mt-1 text-base font-semibold text-primary">
+                  {formatDate(subscription.current_period_end)}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Tu suscripción se renovará automáticamente en esta fecha
+                </p>
+              </div>
+            )}
+            {subscription?.status === "trial" && subscription.trial_ends_at && (
+              <div className="pt-3 border-t border-primary/10">
+                <p className="text-sm font-medium text-foreground">
+                  Fin del período de prueba
+                </p>
+                <p className="mt-1 text-base font-semibold text-primary">
+                  {formatDate(subscription.trial_ends_at)}
+                </p>
+              </div>
+            )}
+            {subscription?.status === "canceled" && (
+              <div className="pt-3 border-t border-primary/10">
+                <p className="text-sm text-muted-foreground">
+                  Tu suscripción ha sido cancelada. No se realizarán más cargos.
+                </p>
+              </div>
             )}
           </div>
         </CardContent>
@@ -206,6 +330,28 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
         open={notificationsDialogOpen} 
         onOpenChange={setNotificationsDialogOpen} 
       />
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cancelar suscripción?</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro de que deseas cancelar tu suscripción? Tu acceso al Plan Profesional 
+              continuará hasta el final del período de facturación actual ({subscription?.current_period_end ? formatDateShort(subscription.current_period_end) : "fecha de renovación"}).
+              <br /><br />
+              Después de esa fecha, no se realizarán más cargos y perderás el acceso a las funciones premium.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Mantener suscripción</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmCancelSubscription}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Cancelar suscripción
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
