@@ -313,11 +313,24 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_SECRET) {
-      throw new Error("PayPal credentials not configured");
+      console.error("PayPal credentials not configured");
+      return new Response(
+        JSON.stringify({ error: "PayPal credentials not configured" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error("Supabase environment variables not configured");
+      return new Response(
+        JSON.stringify({ error: "Server configuration error" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Obtener token de autenticación del usuario
@@ -334,13 +347,26 @@ const handler = async (req: Request): Promise<Response> => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
+      console.error("Authentication error:", authError);
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    const { barbershop_id, action, subscription_id, order_id, reason }: CreateSubscriptionRequest = await req.json();
+    // Parsear el body del request
+    let requestBody: CreateSubscriptionRequest;
+    try {
+      requestBody = await req.json();
+    } catch (parseError) {
+      console.error("Error parsing request body:", parseError);
+      return new Response(
+        JSON.stringify({ error: "Invalid request body. Expected JSON." }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const { barbershop_id, action, subscription_id, order_id, reason } = requestBody;
 
     if (!barbershop_id) {
       return new Response(
@@ -662,6 +688,8 @@ const handler = async (req: Request): Promise<Response> => {
     }
   } catch (error: any) {
     console.error("Error in create-subscription function:", error);
+    console.error("Error stack:", error.stack);
+    console.error("Error name:", error.name);
     
     // Mensajes de error más descriptivos
     let errorMessage = "Error interno del servidor";
@@ -680,13 +708,16 @@ const handler = async (req: Request): Promise<Response> => {
         errorMessage = "Error al activar la suscripción en PayPal.";
       } else if (errorMessage.includes("Failed to cancel PayPal subscription")) {
         errorMessage = "Error al cancelar la suscripción en PayPal.";
+      } else if (errorMessage.includes("JSON")) {
+        errorMessage = "Error al procesar la solicitud. Verifica el formato de los datos.";
       }
     }
     
     return new Response(
       JSON.stringify({ 
         error: errorMessage,
-        details: process.env.NODE_ENV === "development" ? error.stack : undefined
+        error_type: error.name || "UnknownError",
+        details: PAYPAL_MODE === "sandbox" ? error.message : undefined
       }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
