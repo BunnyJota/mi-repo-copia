@@ -155,10 +155,11 @@ async function createPayPalSubscription(accessToken: string, planId: string, bar
   const callbackUrl = `${APP_URL}/subscription/callback`;
   
   // PayPal requiere que start_time sea una fecha futura
-  // Usamos 30 segundos para evitar errores por latencia de red
-  // Esto asegura que PayPal pueda validar el start_time antes de que expire
+  // Con CONTINUE, podemos usar una fecha más cercana ya que la activación es manual
+  // Usamos 1 minuto para asegurar que PayPal acepte el start_time
+  // Cuando activemos desde el servidor, el pago se procesará inmediatamente
   const startTime = new Date();
-  startTime.setSeconds(startTime.getSeconds() + 30);
+  startTime.setMinutes(startTime.getMinutes() + 1);
   
   const subscriptionData = {
     plan_id: planId,
@@ -170,10 +171,11 @@ async function createPayPalSubscription(accessToken: string, planId: string, bar
       brand_name: "Trimly",
       locale: "es-ES",
       shipping_preference: "NO_SHIPPING",
-      // Usar SUBSCRIBE_NOW para procesar el pago inmediatamente después de la aprobación
-      // Con start_time de 30 segundos evitamos errores de activación desde el cliente
-      // PayPal procesará el pago automáticamente cuando el usuario apruebe
-      user_action: "SUBSCRIBE_NOW",
+      // Usar CONTINUE para evitar que PayPal intente activar desde el cliente
+      // La activación se manejará desde el servidor inmediatamente después de la aprobación
+      // Esto previene el error 400 en el endpoint de activación del cliente
+      // El pago se procesará cuando activemos la suscripción desde el servidor
+      user_action: "CONTINUE",
       payment_method: {
         payer_selected: "PAYPAL",
         payee_preferred: "IMMEDIATE_PAYMENT_REQUIRED",
@@ -223,11 +225,12 @@ async function activatePayPalSubscription(accessToken: string, subscriptionId: s
   const currentStatus = subscription.status;
 
   // Estados de PayPal que requieren activación
+  // Con CONTINUE, la suscripción llega como APPROVED y necesitamos activarla manualmente
   const pendingStates = ["APPROVAL_PENDING", "APPROVED", "CREATED"];
   const activeStates = ["ACTIVE"];
   const errorStates = ["CANCELLED", "SUSPENDED", "EXPIRED"];
 
-  // Si la suscripción está en un estado pendiente, intentar activarla
+  // Si la suscripción está en un estado pendiente (especialmente APPROVED con CONTINUE), activarla
   if (pendingStates.includes(currentStatus)) {
     console.log(`Subscription ${subscriptionId} is in ${currentStatus} state, attempting activation...`);
     
