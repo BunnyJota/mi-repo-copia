@@ -154,12 +154,13 @@ async function createPayPalSubscription(accessToken: string, planId: string, bar
 
   const callbackUrl = `${APP_URL}/subscription/callback`;
   
-  // PayPal requiere que start_time sea una fecha futura
-  // Con CONTINUE, podemos usar una fecha más cercana ya que la activación es manual
-  // Usamos 1 minuto para asegurar que PayPal acepte el start_time
-  // Cuando activemos desde el servidor, el pago se procesará inmediatamente
+  // Para procesar el primer pago inmediatamente:
+  // Usamos start_time muy cercano al presente (5 segundos) para que PayPal lo acepte
+  // Pero activamos INMEDIATAMENTE desde el servidor después de la aprobación
+  // Esto hace que PayPal procese el pago en la activación, no espere al start_time
+  // La clave es activar la suscripción DESPUÉS de que se apruebe, no dejar que PayPal espere
   const startTime = new Date();
-  startTime.setMinutes(startTime.getMinutes() + 1);
+  startTime.setSeconds(startTime.getSeconds() + 5); // 5 segundos para cumplir con el requisito de PayPal
   
   const subscriptionData = {
     plan_id: planId,
@@ -171,11 +172,11 @@ async function createPayPalSubscription(accessToken: string, planId: string, bar
       brand_name: "Trimly",
       locale: "es-ES",
       shipping_preference: "NO_SHIPPING",
-      // Usar CONTINUE para evitar que PayPal intente activar desde el cliente
-      // La activación se manejará desde el servidor inmediatamente después de la aprobación
-      // Esto previene el error 400 en el endpoint de activación del cliente
-      // El pago se procesará cuando activemos la suscripción desde el servidor
-      user_action: "CONTINUE",
+      // Usar SUBSCRIBE_NOW para procesar el pago inmediatamente
+      // Con start_time de solo 5 segundos, PayPal debería procesar el pago cuando se active
+      // SUBSCRIBE_NOW procesa el pago inmediatamente al activar, no espera al start_time
+      // Esto asegura que el primer pago se procese correctamente ($10.00)
+      user_action: "SUBSCRIBE_NOW",
       payment_method: {
         payer_selected: "PAYPAL",
         payee_preferred: "IMMEDIATE_PAYMENT_REQUIRED",
