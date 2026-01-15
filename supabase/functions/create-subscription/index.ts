@@ -154,9 +154,11 @@ async function createPayPalSubscription(accessToken: string, planId: string, bar
 
   const callbackUrl = `${APP_URL}/subscription/callback`;
   
-  // PayPal requiere que start_time sea una fecha futura (mínimo 1 minuto desde ahora)
+  // PayPal requiere que start_time sea una fecha futura, pero con SUBSCRIBE_NOW
+  // necesitamos que sea solo unos segundos en el futuro para permitir activación inmediata
+  // Usamos 10 segundos para cumplir con el requisito pero no interferir con la activación
   const startTime = new Date();
-  startTime.setMinutes(startTime.getMinutes() + 1); // Agregar 1 minuto para asegurar que sea futura
+  startTime.setSeconds(startTime.getSeconds() + 10); // Agregar 10 segundos para asegurar que sea futura pero cercana
   
   const subscriptionData = {
     plan_id: planId,
