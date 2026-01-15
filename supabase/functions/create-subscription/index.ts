@@ -154,11 +154,11 @@ async function createPayPalSubscription(accessToken: string, planId: string, bar
 
   const callbackUrl = `${APP_URL}/subscription/callback`;
   
-  // PayPal requiere que start_time sea una fecha futura, pero con SUBSCRIBE_NOW
-  // necesitamos que sea solo unos segundos en el futuro para permitir activación inmediata
-  // Usamos 10 segundos para cumplir con el requisito pero no interferir con la activación
+  // PayPal requiere que start_time sea una fecha futura
+  // Usamos 30 segundos para evitar errores por latencia de red
+  // Esto asegura que PayPal pueda validar el start_time antes de que expire
   const startTime = new Date();
-  startTime.setSeconds(startTime.getSeconds() + 10); // Agregar 10 segundos para asegurar que sea futura pero cercana
+  startTime.setSeconds(startTime.getSeconds() + 30);
   
   const subscriptionData = {
     plan_id: planId,
@@ -170,7 +170,10 @@ async function createPayPalSubscription(accessToken: string, planId: string, bar
       brand_name: "Trimly",
       locale: "es-ES",
       shipping_preference: "NO_SHIPPING",
-      user_action: "SUBSCRIBE_NOW", // Cambiado a SUBSCRIBE_NOW para procesar pago inmediatamente
+      // Usar SUBSCRIBE_NOW para procesar el pago inmediatamente después de la aprobación
+      // Con start_time de 30 segundos evitamos errores de activación desde el cliente
+      // PayPal procesará el pago automáticamente cuando el usuario apruebe
+      user_action: "SUBSCRIBE_NOW",
       payment_method: {
         payer_selected: "PAYPAL",
         payee_preferred: "IMMEDIATE_PAYMENT_REQUIRED",
@@ -242,10 +245,11 @@ async function activatePayPalSubscription(accessToken: string, subscriptionId: s
 
       if (!activateResponse.ok) {
         const errorText = await activateResponse.text();
-        console.warn(`Failed to activate subscription ${subscriptionId}:`, errorText);
+        console.error(`Failed to activate subscription ${subscriptionId}:`, errorText);
         
         // Si el error indica que ya está activa, obtener los detalles actualizados
         if (errorText.includes("already") || errorText.includes("ACTIVE")) {
+          console.log(`Subscription ${subscriptionId} is already active, fetching updated details...`);
           const updatedResponse = await fetch(`${PAYPAL_API_BASE}/v1/billing/subscriptions/${subscriptionId}`, {
             method: "GET",
             headers: {
@@ -255,12 +259,15 @@ async function activatePayPalSubscription(accessToken: string, subscriptionId: s
           });
 
           if (updatedResponse.ok) {
-            return await updatedResponse.json();
+            const updatedSubscription = await updatedResponse.json();
+            console.log(`Retrieved updated subscription with status: ${updatedSubscription.status}`);
+            return updatedSubscription;
           }
         }
         
-        // Si no podemos activar, continuar con el estado actual
-        console.warn(`Continuing with current subscription state: ${currentStatus}`);
+        // Si la activación falla por otras razones, lanzar error en lugar de continuar
+        // Esto evita guardar estados inconsistentes en la BD
+        throw new Error(`No se pudo activar la suscripción en PayPal. Estado actual: ${currentStatus}. Error: ${errorText.substring(0, 200)}`);
       } else {
         // Activación exitosa, obtener los detalles actualizados
         const updatedResponse = await fetch(`${PAYPAL_API_BASE}/v1/billing/subscriptions/${subscriptionId}`, {
@@ -277,20 +284,24 @@ async function activatePayPalSubscription(accessToken: string, subscriptionId: s
           return updatedSubscription;
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error activating subscription ${subscriptionId}:`, error);
-      // Continuar con el estado actual en caso de error
+      // Re-lanzar el error para que se maneje en el nivel superior
+      // No retornar el estado original para evitar inconsistencias
+      throw new Error(`Error al activar la suscripción: ${error.message || error}`);
     }
   } else if (activeStates.includes(currentStatus)) {
-    console.log(`Subscription ${subscriptionId} is already ACTIVE`);
+    console.log(`Subscription ${subscriptionId} is already ACTIVE, returning current subscription`);
+    // Si ya está activa, retornar la suscripción actual
+    return subscription;
   } else if (errorStates.includes(currentStatus)) {
-    console.warn(`Subscription ${subscriptionId} is in error state: ${currentStatus}`);
+    console.error(`Subscription ${subscriptionId} is in error state: ${currentStatus}`);
     throw new Error(`La suscripción está en un estado inválido: ${currentStatus}`);
   } else {
+    // Si el estado es desconocido, no asumir que está bien
     console.warn(`Subscription ${subscriptionId} has unknown status: ${currentStatus}`);
+    throw new Error(`Estado de suscripción desconocido o no manejado: ${currentStatus}`);
   }
-
-  return subscription;
 }
 
 // Cancelar suscripción en PayPal
@@ -591,7 +602,55 @@ const handler = async (req: Request): Promise<Response> => {
         );
       }
 
-      // Ahora activar la suscripción
+      // VALIDACIÓN DE OWNERSHIP ANTES de activar la suscripción (seguridad)
+      // Primero verificar que la barbería existe
+      const { data: barbershopCheck, error: barbershopError } = await supabase
+        .from("barbershops")
+        .select("id")
+        .eq("id", finalBarbershopId)
+        .single();
+
+      if (barbershopError || !barbershopCheck) {
+        return new Response(
+          JSON.stringify({ error: `Barbería no encontrada: ${finalBarbershopId}` }),
+          { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      // Luego validar que el usuario es owner de esta barbería específica
+      // Esto previene que un usuario active suscripciones de otras barberías
+      const { data: ownershipCheck } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "owner")
+        .maybeSingle();
+
+      if (!ownershipCheck) {
+        return new Response(
+          JSON.stringify({ error: "No tienes permisos para activar suscripciones. Se requiere rol de owner." }),
+          { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      // Verificar que el barbershop_id del custom_id coincide con una barbería del usuario
+      // Obtener las barberías del usuario desde el perfil para validar
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("barbershop_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (userProfile?.barbershop_id !== finalBarbershopId) {
+        // Permitir solo si el barbershop_id coincide con el del perfil del usuario
+        // Esto asegura que solo puedan activar suscripciones de su propia barbería
+        return new Response(
+          JSON.stringify({ error: "No tienes permisos para activar esta suscripción. La barbería no pertenece a tu cuenta." }),
+          { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      // Ahora que hemos validado ownership, proceder a activar la suscripción
       try {
         subscription = await activatePayPalSubscription(accessToken, subscription_id);
       } catch (error: any) {
@@ -602,50 +661,27 @@ const handler = async (req: Request): Promise<Response> => {
         );
       }
 
-      // Validar que el usuario sea owner de la barbería
-      const { data: ownershipCheck } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "owner")
-        .maybeSingle();
-
-      if (!ownershipCheck) {
-        return new Response(
-          JSON.stringify({ error: "No tienes permisos para activar esta suscripción. Se requiere rol de owner." }),
-          { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
-        );
-      }
-
-      // Verificar que la barbería existe y pertenece al usuario
-      const { data: barbershopCheck, error: barbershopError } = await supabase
-        .from("barbershops")
-        .select("id")
-        .eq("id", finalBarbershopId)
-        .single();
-
-      if (barbershopError || !barbershopCheck) {
-        return new Response(
-          JSON.stringify({ error: `Barbería no encontrada o no tienes acceso: ${finalBarbershopId}` }),
-          { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
-        );
-      }
-
       // Calcular fecha de fin del período (próximo pago)
-      // IMPORTANTE: Usar la fecha ACTUAL cuando se procesa el pago, no la fecha de inicio de PayPal
-      // Si pagas el 15 de enero, el próximo pago debe ser el 15 de febrero
+      // Prioridad: next_billing_time > start_time + 1 mes > fecha actual + 1 mes
       let currentPeriodEnd: Date;
       
       if (subscription.billing_info?.next_billing_time) {
         // Si PayPal proporciona next_billing_time, usarlo (es la fecha más confiable)
         currentPeriodEnd = new Date(subscription.billing_info.next_billing_time);
         console.log(`Using PayPal next_billing_time: ${currentPeriodEnd.toISOString()}`);
+      } else if (subscription.start_time) {
+        // Si no hay next_billing_time, usar el start_time de PayPal + 1 mes
+        // Esto mantiene consistencia con la fecha de inicio real de la suscripción
+        const startDate = new Date(subscription.start_time);
+        currentPeriodEnd = new Date(startDate);
+        currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
+        console.log(`Calculated next payment date from subscription start_time: ${currentPeriodEnd.toISOString()}`);
       } else {
-        // Si no hay next_billing_time, calcular 1 mes desde HOY (fecha actual de activación)
+        // Fallback: calcular 1 mes desde HOY (fecha actual de activación)
         // Esto asegura que si activas el 15 de enero, el próximo pago sea el 15 de febrero
         currentPeriodEnd = new Date();
         currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
-        console.log(`Calculated next payment date from today: ${currentPeriodEnd.toISOString()}`);
+        console.log(`Calculated next payment date from today (fallback): ${currentPeriodEnd.toISOString()}`);
       }
 
       // Mapear estados de PayPal a estados internos
