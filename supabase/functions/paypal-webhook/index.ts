@@ -28,6 +28,7 @@ const corsHeaders = {
 const PAYPAL_CLIENT_ID = Deno.env.get("PAYPAL_CLIENT_ID");
 const PAYPAL_CLIENT_SECRET = Deno.env.get("PAYPAL_CLIENT_SECRET");
 const PAYPAL_MODE = Deno.env.get("PAYPAL_MODE") || "sandbox";
+const PAYPAL_WEBHOOK_ID = Deno.env.get("PAYPAL_WEBHOOK_ID"); // ID del webhook configurado en PayPal Dashboard
 
 const PAYPAL_API_BASE = PAYPAL_MODE === "live"
   ? "https://api-m.paypal.com"
@@ -42,45 +43,112 @@ interface PayPalWebhookEvent {
   create_time?: string;
 }
 
-// Verificar webhook de PayPal (simplificado - en producción deberías verificar la firma)
-async function verifyWebhook(eventId: string): Promise<boolean> {
+// Obtener token de acceso de PayPal
+async function getPayPalAccessToken(): Promise<string> {
+  const auth = btoa(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`);
+  const tokenResponse = await fetch(`${PAYPAL_API_BASE}/v1/oauth2/token`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Basic ${auth}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: "grant_type=client_credentials",
+  });
+
+  if (!tokenResponse.ok) {
+    throw new Error(`Failed to get PayPal access token: ${tokenResponse.status}`);
+  }
+
+  const data = await tokenResponse.json();
+  return data.access_token;
+}
+
+// Verificar webhook de PayPal usando la verificación de firma real
+async function verifyWebhook(
+  rawBody: string,
+  headers: Headers,
+  webhookEvent: any
+): Promise<boolean> {
   try {
+    // Verificar que tenemos las credenciales necesarias
+    if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_SECRET) {
+      console.error("PayPal credentials not configured");
+      return false;
+    }
+
+    // Verificar que tenemos el webhook ID
+    if (!PAYPAL_WEBHOOK_ID) {
+      console.warn("PAYPAL_WEBHOOK_ID not configured. Webhook verification will be skipped in sandbox mode.");
+      // En sandbox, permitir sin verificación si no hay webhook ID configurado
+      // PERO esto debe estar configurado en producción
+      if (PAYPAL_MODE === "sandbox") {
+        return true; // Permitir en sandbox para desarrollo
+      }
+      return false;
+    }
+
+    // Extraer headers requeridos de PayPal
+    const transmissionId = headers.get("paypal-transmission-id");
+    const transmissionTime = headers.get("paypal-transmission-time");
+    const transmissionSig = headers.get("paypal-transmission-sig");
+    const certUrl = headers.get("paypal-cert-url");
+    const authAlgo = headers.get("paypal-auth-algo");
+
+    // Verificar que todos los headers requeridos están presentes
+    if (!transmissionId || !transmissionTime || !transmissionSig || !certUrl || !authAlgo) {
+      console.error("Missing required PayPal webhook headers");
+      return false;
+    }
+
+    // Verificar que el timestamp es reciente (últimos 5 minutos) para prevenir replay attacks
+    const transmissionTimestamp = new Date(transmissionTime);
+    const now = new Date();
+    const timeDiff = now.getTime() - transmissionTimestamp.getTime();
+    const fiveMinutes = 5 * 60 * 1000;
+
+    if (timeDiff > fiveMinutes || timeDiff < 0) {
+      console.error(`Webhook timestamp is too old or in the future: ${transmissionTime}`);
+      return false;
+    }
+
     // Obtener token de acceso
-    const auth = btoa(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`);
-    const tokenResponse = await fetch(`${PAYPAL_API_BASE}/v1/oauth2/token`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Basic ${auth}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: "grant_type=client_credentials",
-    });
+    const accessToken = await getPayPalAccessToken();
 
-    if (!tokenResponse.ok) return false;
-    const { access_token } = await tokenResponse.json();
-
-    // Verificar evento en PayPal (obtener detalles del evento)
+    // Verificar la firma con PayPal
     const verifyResponse = await fetch(`${PAYPAL_API_BASE}/v1/notifications/verify-webhook-signature`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${access_token}`,
+        "Authorization": `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        transmission_id: eventId,
-        transmission_time: new Date().toISOString(),
-        cert_url: "",
-        auth_algo: "SHA256withRSA",
-        transmission_sig: "",
-        webhook_id: "",
-        webhook_event: {},
+        transmission_id: transmissionId,
+        transmission_time: transmissionTime,
+        cert_url: certUrl,
+        auth_algo: authAlgo,
+        transmission_sig: transmissionSig,
+        webhook_id: PAYPAL_WEBHOOK_ID,
+        webhook_event: webhookEvent,
       }),
     });
 
-    // Por ahora, solo verificamos que tengamos credenciales
-    // En producción, implementa la verificación completa de firma
-    return true;
-  } catch {
+    if (!verifyResponse.ok) {
+      console.error(`PayPal webhook verification failed: ${verifyResponse.status} ${await verifyResponse.text()}`);
+      return false;
+    }
+
+    const verificationResult = await verifyResponse.json();
+    
+    // PayPal retorna verification_status: "SUCCESS" si la verificación es exitosa
+    if (verificationResult.verification_status === "SUCCESS") {
+      console.log("Webhook signature verified successfully");
+      return true;
+    } else {
+      console.error(`Webhook signature verification failed: ${verificationResult.verification_status}`);
+      return false;
+    }
+  } catch (error) {
+    console.error("Error verifying webhook:", error);
     return false;
   }
 }
@@ -91,11 +159,40 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // IMPORTANTE: Obtener el raw body ANTES de parsearlo para verificación de firma
+    const rawBody = await req.text();
+    
+    // Parsear el evento JSON
+    let event: PayPalWebhookEvent;
+    try {
+      event = JSON.parse(rawBody);
+    } catch (parseError) {
+      console.error("Invalid JSON in webhook body:", parseError);
+      return new Response(
+        JSON.stringify({ error: "Invalid JSON body" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Verificar la firma del webhook
+    const isValid = await verifyWebhook(rawBody, req.headers, event);
+    
+    if (!isValid) {
+      console.error("Webhook signature verification failed. Rejecting webhook.");
+      // En producción, siempre rechazar webhooks no verificados
+      // En sandbox, podemos ser más permisivos si no hay webhook ID configurado
+      if (PAYPAL_MODE === "live" || PAYPAL_WEBHOOK_ID) {
+        return new Response(
+          JSON.stringify({ error: "Invalid webhook signature" }),
+          { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+      console.warn("Skipping webhook verification in sandbox mode (PAYPAL_WEBHOOK_ID not configured)");
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    const event: PayPalWebhookEvent = await req.json();
 
     if (!event.id || !event.event_type) {
       return new Response(
