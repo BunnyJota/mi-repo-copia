@@ -156,7 +156,7 @@ async function createPayPalSubscription(accessToken: string, planId: string, bar
   
   const subscriptionData = {
     plan_id: planId,
-    start_time: new Date(Date.now() + 60 * 1000).toISOString(), // 1 minuto en el futuro
+    start_time: new Date().toISOString(), // Iniciar inmediatamente
     subscriber: {
       email_address: subscriberEmail,
     },
@@ -164,7 +164,7 @@ async function createPayPalSubscription(accessToken: string, planId: string, bar
       brand_name: "Trimly",
       locale: "es-ES",
       shipping_preference: "NO_SHIPPING",
-      user_action: "CONTINUE", // Cambiado a CONTINUE para activar manualmente desde el servidor
+      user_action: "SUBSCRIBE_NOW", // Cambiado a SUBSCRIBE_NOW para procesar pago inmediatamente
       payment_method: {
         payer_selected: "PAYPAL",
         payee_preferred: "IMMEDIATE_PAYMENT_REQUIRED",
@@ -533,12 +533,22 @@ const handler = async (req: Request): Promise<Response> => {
         );
       }
 
-      // Calcular fecha de fin del período
-      const currentPeriodEnd = subscription.billing_info?.next_billing_time
-        ? new Date(subscription.billing_info.next_billing_time)
-        : subscription.billing_info?.cycle_executions?.[0]?.cycles_completed
-        ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 días desde ahora
-        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 días por defecto
+      // Calcular fecha de fin del período (próximo pago)
+      // IMPORTANTE: Usar la fecha ACTUAL cuando se procesa el pago, no la fecha de inicio de PayPal
+      // Si pagas el 15 de enero, el próximo pago debe ser el 15 de febrero
+      let currentPeriodEnd: Date;
+      
+      if (subscription.billing_info?.next_billing_time) {
+        // Si PayPal proporciona next_billing_time, usarlo (es la fecha más confiable)
+        currentPeriodEnd = new Date(subscription.billing_info.next_billing_time);
+        console.log(`Using PayPal next_billing_time: ${currentPeriodEnd.toISOString()}`);
+      } else {
+        // Si no hay next_billing_time, calcular 1 mes desde HOY (fecha actual de activación)
+        // Esto asegura que si activas el 15 de enero, el próximo pago sea el 15 de febrero
+        currentPeriodEnd = new Date();
+        currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
+        console.log(`Calculated next payment date from today: ${currentPeriodEnd.toISOString()}`);
+      }
 
       // Mapear estados de PayPal a estados internos
       let internalStatus = "trial";
