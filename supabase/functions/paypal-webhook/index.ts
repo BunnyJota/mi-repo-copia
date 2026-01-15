@@ -166,9 +166,20 @@ const handler = async (req: Request): Promise<Response> => {
       case "BILLING.SUBSCRIPTION.ACTIVATED":
       case "BILLING.SUBSCRIPTION.CREATED":
         if (subscriptionId && barbershopId) {
-          const currentPeriodEnd = event.resource?.billing_info?.next_billing_time
-            ? new Date(event.resource.billing_info.next_billing_time)
-            : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+          let currentPeriodEnd: Date;
+          
+          if (event.resource?.billing_info?.next_billing_time) {
+            currentPeriodEnd = new Date(event.resource.billing_info.next_billing_time);
+          } else if (event.resource?.start_time) {
+            // Calcular 1 mes desde la fecha de inicio
+            const startDate = new Date(event.resource.start_time);
+            currentPeriodEnd = new Date(startDate);
+            currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
+          } else {
+            // Fallback: 1 mes desde ahora
+            currentPeriodEnd = new Date();
+            currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
+          }
 
           await supabase
             .from("subscriptions")
@@ -214,13 +225,68 @@ const handler = async (req: Request): Promise<Response> => {
 
       case "PAYMENT.SALE.COMPLETED":
         if (subscriptionId && barbershopId) {
-          const nextBillingTime = event.resource?.billing_agreement_id
-            ? await (async () => {
-                // Obtener detalles de la suscripción para calcular siguiente facturación
-                // Por simplicidad, asumimos 30 días desde ahora
-                return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-              })()
-            : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+          // Obtener detalles de la suscripción para calcular siguiente facturación
+          let nextBillingTime: Date;
+          
+          if (event.resource?.billing_agreement_id) {
+            try {
+              // Obtener token de acceso
+              const auth = btoa(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`);
+              const tokenResponse = await fetch(`${PAYPAL_API_BASE}/v1/oauth2/token`, {
+                method: "POST",
+                headers: {
+                  "Authorization": `Basic ${auth}`,
+                  "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: "grant_type=client_credentials",
+              });
+
+              if (tokenResponse.ok) {
+                const { access_token } = await tokenResponse.json();
+                
+                // Obtener detalles de la suscripción
+                const subResponse = await fetch(`${PAYPAL_API_BASE}/v1/billing/subscriptions/${subscriptionId}`, {
+                  method: "GET",
+                  headers: {
+                    "Authorization": `Bearer ${access_token}`,
+                    "Content-Type": "application/json",
+                  },
+                });
+
+                if (subResponse.ok) {
+                  const subData = await subResponse.json();
+                  if (subData.billing_info?.next_billing_time) {
+                    // Usar la fecha de PayPal si está disponible
+                    nextBillingTime = new Date(subData.billing_info.next_billing_time);
+                    console.log(`Using PayPal next_billing_time from webhook: ${nextBillingTime.toISOString()}`);
+                  } else {
+                    // Si no hay next_billing_time, calcular 1 mes desde HOY (cuando se procesa el pago)
+                    // Esto asegura que si el pago se procesa el 15 de enero, el próximo sea el 15 de febrero
+                    nextBillingTime = new Date();
+                    nextBillingTime.setMonth(nextBillingTime.getMonth() + 1);
+                    console.log(`Calculated next payment from payment date: ${nextBillingTime.toISOString()}`);
+                  }
+                } else {
+                  // Fallback: 1 mes desde ahora
+                  nextBillingTime = new Date();
+                  nextBillingTime.setMonth(nextBillingTime.getMonth() + 1);
+                }
+              } else {
+                // Fallback: 1 mes desde ahora
+                nextBillingTime = new Date();
+                nextBillingTime.setMonth(nextBillingTime.getMonth() + 1);
+              }
+            } catch (error) {
+              console.error("Error getting subscription details for payment:", error);
+              // Fallback: 1 mes desde ahora
+              nextBillingTime = new Date();
+              nextBillingTime.setMonth(nextBillingTime.getMonth() + 1);
+            }
+          } else {
+            // Fallback: 1 mes desde ahora
+            nextBillingTime = new Date();
+            nextBillingTime.setMonth(nextBillingTime.getMonth() + 1);
+          }
 
           await supabase
             .from("subscriptions")
