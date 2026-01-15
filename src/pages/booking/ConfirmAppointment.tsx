@@ -79,7 +79,7 @@ const ConfirmAppointment = () => {
           <div className="flex flex-col items-center space-y-4">
             <Loader2 className="h-16 w-16 animate-spin text-primary" />
             <h2 className="font-display text-xl font-semibold">
-              {action === "confirm" ? "Confirmando tu cita..." : "Cancelando tu cita..."}
+              {action === "confirm" ? "Agendando tu cita..." : "Cancelando tu cita..."}
             </h2>
             <p className="text-muted-foreground">Por favor espera un momento</p>
           </div>
@@ -96,10 +96,10 @@ const ConfirmAppointment = () => {
               <CheckCircle className="h-10 w-10 text-success" />
             </div>
             <h2 className="font-display text-2xl font-bold text-success">
-              ¡Cita Confirmada!
+              Cita agendada
             </h2>
             <p className="text-center text-muted-foreground">
-              Tu cita ha sido confirmada exitosamente. Te esperamos en la fecha y hora indicadas.
+              Tu cita ha sido agendada exitosamente. Te esperamos en la fecha y hora indicadas.
             </p>
           </motion.div>
         );

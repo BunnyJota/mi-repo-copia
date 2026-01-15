@@ -161,7 +161,7 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
                   <span className="font-display font-semibold">Suscripción</span>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Plan Profesional - $10 USD/mes
+                  Plan Profesional - $10 USD/mes (pago mensual recurrente)
                 </p>
                 <div className="mt-2">
                   {getSubscriptionBadge()}
@@ -191,7 +191,7 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
                     size="sm"
                     onClick={handleCancelSubscription}
                     disabled={cancelSubscription.isPending}
-                    className="text-destructive hover:text-destructive"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
                     {cancelSubscription.isPending ? (
                       <>
@@ -201,8 +201,25 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
                     ) : (
                       <>
                         <X className="mr-2 h-4 w-4" />
-                        Cancelar
+                        Cancelar suscripción
                       </>
+                    )}
+                  </Button>
+                )}
+                {subscription?.status === "canceled" && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleActivateSubscription}
+                    disabled={createSubscription.isPending}
+                  >
+                    {createSubscription.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Procesando...
+                      </>
+                    ) : (
+                      "Reactivar"
                     )}
                   </Button>
                 )}
@@ -217,7 +234,7 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
                   {formatDate(subscription.current_period_end)}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Tu suscripción se renovará automáticamente en esta fecha
+                  Tu suscripción se renovará automáticamente cada mes en esta fecha. Puedes cancelar en cualquier momento.
                 </p>
               </div>
             )}
@@ -234,7 +251,10 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
             {subscription?.status === "canceled" && (
               <div className="pt-3 border-t border-primary/10">
                 <p className="text-sm text-muted-foreground">
-                  Tu suscripción ha sido cancelada. No se realizarán más cargos.
+                  Tu suscripción ha sido cancelada. No se realizarán más cargos automáticos.
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Puedes reactivar tu suscripción en cualquier momento para continuar disfrutando del Plan Profesional.
                 </p>
               </div>
             )}
