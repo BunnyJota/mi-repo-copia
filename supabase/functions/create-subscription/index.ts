@@ -147,20 +147,24 @@ async function getOrCreatePayPalPlan(accessToken: string, productId: string): Pr
 }
 
 // Crear suscripción en PayPal
-async function createPayPalSubscription(accessToken: string, planId: string, barbershopId: string): Promise<{ id: string; links: Array<{ href: string; rel: string; method: string }> }> {
+async function createPayPalSubscription(accessToken: string, planId: string, barbershopId: string, subscriberEmail: string): Promise<{ id: string; links: Array<{ href: string; rel: string; method: string }> }> {
+  if (!subscriberEmail) {
+    throw new Error("Subscriber email is required to create the PayPal subscription");
+  }
+
   const callbackUrl = `${APP_URL}/subscription/callback`;
   
   const subscriptionData = {
     plan_id: planId,
     start_time: new Date(Date.now() + 60 * 1000).toISOString(), // 1 minuto en el futuro
     subscriber: {
-      email_address: "", // Se puede obtener del perfil del usuario
+      email_address: subscriberEmail,
     },
     application_context: {
       brand_name: "Trimly",
       locale: "es-ES",
       shipping_preference: "NO_SHIPPING",
-      user_action: "SUBSCRIBE_NOW",
+      user_action: "CONTINUE", // Cambiado a CONTINUE para activar manualmente desde el servidor
       payment_method: {
         payer_selected: "PAYPAL",
         payee_preferred: "IMMEDIATE_PAYMENT_REQUIRED",
@@ -191,7 +195,8 @@ async function createPayPalSubscription(accessToken: string, planId: string, bar
 
 // Activar suscripción después de aprobación
 async function activatePayPalSubscription(accessToken: string, subscriptionId: string): Promise<any> {
-  const response = await fetch(`${PAYPAL_API_BASE}/v1/billing/subscriptions/${subscriptionId}`, {
+  // Primero obtener los detalles de la suscripción
+  const getResponse = await fetch(`${PAYPAL_API_BASE}/v1/billing/subscriptions/${subscriptionId}`, {
     method: "GET",
     headers: {
       "Authorization": `Bearer ${accessToken}`,
@@ -199,12 +204,87 @@ async function activatePayPalSubscription(accessToken: string, subscriptionId: s
     },
   });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Failed to get PayPal subscription: ${error}`);
+  if (!getResponse.ok) {
+    const errorText = await getResponse.text();
+    console.error(`Failed to get PayPal subscription ${subscriptionId}:`, errorText);
+    throw new Error(`No se pudo obtener la suscripción de PayPal: ${errorText}`);
   }
 
-  return await response.json();
+  const subscription = await getResponse.json();
+  const currentStatus = subscription.status;
+
+  // Estados de PayPal que requieren activación
+  const pendingStates = ["APPROVAL_PENDING", "APPROVED", "CREATED"];
+  const activeStates = ["ACTIVE"];
+  const errorStates = ["CANCELLED", "SUSPENDED", "EXPIRED"];
+
+  // Si la suscripción está en un estado pendiente, intentar activarla
+  if (pendingStates.includes(currentStatus)) {
+    console.log(`Subscription ${subscriptionId} is in ${currentStatus} state, attempting activation...`);
+    
+    try {
+      const activateResponse = await fetch(`${PAYPAL_API_BASE}/v1/billing/subscriptions/${subscriptionId}/activate`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          reason: "Subscription approved by customer",
+        }),
+      });
+
+      if (!activateResponse.ok) {
+        const errorText = await activateResponse.text();
+        console.warn(`Failed to activate subscription ${subscriptionId}:`, errorText);
+        
+        // Si el error indica que ya está activa, obtener los detalles actualizados
+        if (errorText.includes("already") || errorText.includes("ACTIVE")) {
+          const updatedResponse = await fetch(`${PAYPAL_API_BASE}/v1/billing/subscriptions/${subscriptionId}`, {
+            method: "GET",
+            headers: {
+              "Authorization": `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+          });
+
+          if (updatedResponse.ok) {
+            return await updatedResponse.json();
+          }
+        }
+        
+        // Si no podemos activar, continuar con el estado actual
+        console.warn(`Continuing with current subscription state: ${currentStatus}`);
+      } else {
+        // Activación exitosa, obtener los detalles actualizados
+        const updatedResponse = await fetch(`${PAYPAL_API_BASE}/v1/billing/subscriptions/${subscriptionId}`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (updatedResponse.ok) {
+          const updatedSubscription = await updatedResponse.json();
+          console.log(`Subscription ${subscriptionId} activated successfully, new status: ${updatedSubscription.status}`);
+          return updatedSubscription;
+        }
+      }
+    } catch (error) {
+      console.error(`Error activating subscription ${subscriptionId}:`, error);
+      // Continuar con el estado actual en caso de error
+    }
+  } else if (activeStates.includes(currentStatus)) {
+    console.log(`Subscription ${subscriptionId} is already ACTIVE`);
+  } else if (errorStates.includes(currentStatus)) {
+    console.warn(`Subscription ${subscriptionId} is in error state: ${currentStatus}`);
+    throw new Error(`La suscripción está en un estado inválido: ${currentStatus}`);
+  } else {
+    console.warn(`Subscription ${subscriptionId} has unknown status: ${currentStatus}`);
+  }
+
+  return subscription;
 }
 
 // Cancelar suscripción en PayPal
@@ -294,13 +374,22 @@ const handler = async (req: Request): Promise<Response> => {
     const accessToken = await getPayPalAccessToken();
 
     if (action === "create") {
+      // Necesitamos el email del suscriptor (PayPal lo exige)
+      const subscriberEmail = user.email;
+      if (!subscriberEmail) {
+        return new Response(
+          JSON.stringify({ error: "User email not found" }),
+          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
       // Crear producto primero
       const productId = await getOrCreatePayPalProduct(accessToken);
       // Obtener o crear plan
       const planId = await getOrCreatePayPalPlan(accessToken, productId);
       
       // Crear suscripción
-      const subscription = await createPayPalSubscription(accessToken, planId, barbershop_id);
+      const subscription = await createPayPalSubscription(accessToken, planId, barbershop_id, subscriberEmail);
       
       // Guardar plan_id en la suscripción (actualizar si existe, crear si no)
       const { data: existingSubscription } = await supabase
@@ -347,24 +436,168 @@ const handler = async (req: Request): Promise<Response> => {
         );
       }
 
-      // Obtener detalles de la suscripción
-      const subscription = await activatePayPalSubscription(accessToken, subscription_id);
+      // Obtener detalles de la suscripción de PayPal primero para obtener el custom_id
+      let subscription;
+      try {
+        const getSubscriptionResponse = await fetch(`${PAYPAL_API_BASE}/v1/billing/subscriptions/${subscription_id}`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!getSubscriptionResponse.ok) {
+          const errorText = await getSubscriptionResponse.text();
+          throw new Error(`Failed to get PayPal subscription: ${errorText}`);
+        }
+
+        subscription = await getSubscriptionResponse.json();
+      } catch (error: any) {
+        console.error("Error getting PayPal subscription:", error);
+        return new Response(
+          JSON.stringify({ error: error.message || "Error al obtener la suscripción de PayPal" }),
+          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      // Obtener barbershop_id del custom_id de PayPal (más confiable) o del parámetro
+      let finalBarbershopId = barbershop_id;
       
+      if (subscription.custom_id) {
+        finalBarbershopId = subscription.custom_id;
+        console.log(`Using barbershop_id from PayPal custom_id: ${finalBarbershopId}`);
+      } else if (barbershop_id === "auto" || !barbershop_id) {
+        // Si el frontend no pudo obtener el barbershop_id, intentar obtenerlo del perfil del usuario
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("barbershop_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (profileData?.barbershop_id) {
+          finalBarbershopId = profileData.barbershop_id;
+          console.log(`Using barbershop_id from user profile: ${finalBarbershopId}`);
+        } else {
+          return new Response(
+            JSON.stringify({ error: "No se pudo determinar la barbería. Por favor contacta al soporte." }),
+            { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+      }
+
+      if (!finalBarbershopId || finalBarbershopId === "auto") {
+        return new Response(
+          JSON.stringify({ error: "No se pudo determinar la barbería asociada a esta suscripción." }),
+          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      // Ahora activar la suscripción
+      try {
+        subscription = await activatePayPalSubscription(accessToken, subscription_id);
+      } catch (error: any) {
+        console.error("Error activating PayPal subscription:", error);
+        return new Response(
+          JSON.stringify({ error: error.message || "Error al activar la suscripción en PayPal" }),
+          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      // Validar que el usuario sea owner de la barbería
+      const { data: ownershipCheck } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "owner")
+        .maybeSingle();
+
+      if (!ownershipCheck) {
+        return new Response(
+          JSON.stringify({ error: "No tienes permisos para activar esta suscripción. Se requiere rol de owner." }),
+          { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      // Verificar que la barbería existe y pertenece al usuario
+      const { data: barbershopCheck, error: barbershopError } = await supabase
+        .from("barbershops")
+        .select("id")
+        .eq("id", finalBarbershopId)
+        .single();
+
+      if (barbershopError || !barbershopCheck) {
+        return new Response(
+          JSON.stringify({ error: `Barbería no encontrada o no tienes acceso: ${finalBarbershopId}` }),
+          { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
       // Calcular fecha de fin del período
       const currentPeriodEnd = subscription.billing_info?.next_billing_time
         ? new Date(subscription.billing_info.next_billing_time)
+        : subscription.billing_info?.cycle_executions?.[0]?.cycles_completed
+        ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 días desde ahora
         : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 días por defecto
 
-      // Actualizar suscripción en BD
-      await supabase
+      // Mapear estados de PayPal a estados internos
+      let internalStatus = "trial";
+      const paypalStatus = subscription.status;
+      if (paypalStatus === "ACTIVE") {
+        internalStatus = "active";
+      } else if (paypalStatus === "APPROVED" || paypalStatus === "APPROVAL_PENDING") {
+        // Si está aprobada pero no activa, marcarla como trial hasta que se active
+        internalStatus = "trial";
+      } else if (paypalStatus === "CANCELLED" || paypalStatus === "EXPIRED") {
+        internalStatus = "canceled";
+      } else if (paypalStatus === "SUSPENDED") {
+        internalStatus = "past_due";
+      }
+
+      // Actualizar o crear suscripción en BD
+      const { data: existingSubscription } = await supabase
         .from("subscriptions")
-        .update({
-          status: subscription.status === "ACTIVE" ? "active" : "trial",
-          paypal_subscription_id: subscription_id,
-          current_period_end: currentPeriodEnd.toISOString(),
-          last_payment_status: subscription.status,
-        })
-        .eq("barbershop_id", barbershop_id);
+        .select("id")
+        .eq("barbershop_id", finalBarbershopId)
+        .maybeSingle();
+
+      if (existingSubscription) {
+        const { error: updateError } = await supabase
+          .from("subscriptions")
+          .update({
+            status: internalStatus,
+            paypal_subscription_id: subscription_id,
+            current_period_end: currentPeriodEnd.toISOString(),
+            last_payment_status: paypalStatus,
+          })
+          .eq("id", existingSubscription.id);
+
+        if (updateError) {
+          console.error("Error updating subscription:", updateError);
+          return new Response(
+            JSON.stringify({ error: "Error al actualizar la suscripción en la base de datos" }),
+            { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+      } else {
+        const { error: insertError } = await supabase
+          .from("subscriptions")
+          .insert({
+            barbershop_id: finalBarbershopId,
+            paypal_subscription_id: subscription_id,
+            status: internalStatus,
+            current_period_end: currentPeriodEnd.toISOString(),
+            last_payment_status: paypalStatus,
+          });
+
+        if (insertError) {
+          console.error("Error inserting subscription:", insertError);
+          return new Response(
+            JSON.stringify({ error: "Error al crear la suscripción en la base de datos" }),
+            { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+      }
 
       return new Response(
         JSON.stringify({
@@ -372,6 +605,7 @@ const handler = async (req: Request): Promise<Response> => {
           subscription: {
             id: subscription.id,
             status: subscription.status,
+            internal_status: internalStatus,
           },
         }),
         { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -418,8 +652,32 @@ const handler = async (req: Request): Promise<Response> => {
     }
   } catch (error: any) {
     console.error("Error in create-subscription function:", error);
+    
+    // Mensajes de error más descriptivos
+    let errorMessage = "Error interno del servidor";
+    
+    if (error.message) {
+      errorMessage = error.message;
+      
+      // Mejorar mensajes específicos
+      if (errorMessage.includes("PayPal auth failed")) {
+        errorMessage = "Error de autenticación con PayPal. Verifica las credenciales configuradas.";
+      } else if (errorMessage.includes("Failed to create PayPal")) {
+        errorMessage = "Error al crear recursos en PayPal. Verifica la configuración.";
+      } else if (errorMessage.includes("Failed to get PayPal subscription")) {
+        errorMessage = "No se pudo obtener la información de la suscripción de PayPal.";
+      } else if (errorMessage.includes("Failed to activate subscription")) {
+        errorMessage = "Error al activar la suscripción en PayPal.";
+      } else if (errorMessage.includes("Failed to cancel PayPal subscription")) {
+        errorMessage = "Error al cancelar la suscripción en PayPal.";
+      }
+    }
+    
     return new Response(
-      JSON.stringify({ error: error.message || "Internal server error" }),
+      JSON.stringify({ 
+        error: errorMessage,
+        details: process.env.NODE_ENV === "development" ? error.stack : undefined
+      }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }

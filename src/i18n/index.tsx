@@ -78,7 +78,7 @@ const translations: Record<Lang, Dictionary> = {
     "service.continue": "Continuar",
     "service.selected": "servicio(s)",
 
-    "booking.confirmed": "¡Cita confirmada!",
+    "booking.confirmed": "Cita agendada",
     "booking.sentTo": "Hemos enviado los detalles a",
     "booking.at": "Reserva en",
     "booking.barber": "Tu barbero",
@@ -162,7 +162,7 @@ const translations: Record<Lang, Dictionary> = {
     "service.continue": "Continue",
     "service.selected": "service(s)",
 
-    "booking.confirmed": "Appointment confirmed!",
+    "booking.confirmed": "Appointment scheduled",
     "booking.sentTo": "We sent the details to",
     "booking.at": "Booking at",
     "booking.barber": "Your barber",

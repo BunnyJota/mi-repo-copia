@@ -192,10 +192,10 @@ export function ClientForm({
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Reservando...
+                Agendando...
               </>
             ) : (
-              "Confirmar cita"
+              "Agendar cita"
             )}
           </Button>
         </div>
