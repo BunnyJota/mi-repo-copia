@@ -37,7 +37,7 @@ export function ClientForm({
   onBack,
   isSubmitting = false,
 }: ClientFormProps) {
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -192,10 +192,10 @@ export function ClientForm({
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Reservando...
+                {lang === "en" ? "Scheduling..." : "Agendando..."}
               </>
             ) : (
-              "Confirmar cita"
+              t("booking.confirmButton" as any)
             )}
           </Button>
         </div>

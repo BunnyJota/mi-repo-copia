@@ -147,14 +147,18 @@ async function getOrCreatePayPalPlan(accessToken: string, productId: string): Pr
 }
 
 // Crear suscripción en PayPal
-async function createPayPalSubscription(accessToken: string, planId: string, barbershopId: string): Promise<{ id: string; links: Array<{ href: string; rel: string; method: string }> }> {
+async function createPayPalSubscription(accessToken: string, planId: string, barbershopId: string, subscriberEmail: string): Promise<{ id: string; links: Array<{ href: string; rel: string; method: string }> }> {
+  if (!subscriberEmail) {
+    throw new Error("Subscriber email is required to create the PayPal subscription");
+  }
+
   const callbackUrl = `${APP_URL}/subscription/callback`;
   
   const subscriptionData = {
     plan_id: planId,
     start_time: new Date(Date.now() + 60 * 1000).toISOString(), // 1 minuto en el futuro
     subscriber: {
-      email_address: "", // Se puede obtener del perfil del usuario
+      email_address: subscriberEmail,
     },
     application_context: {
       brand_name: "Trimly",
@@ -294,13 +298,22 @@ const handler = async (req: Request): Promise<Response> => {
     const accessToken = await getPayPalAccessToken();
 
     if (action === "create") {
+      // Necesitamos el email del suscriptor (PayPal lo exige)
+      const subscriberEmail = user.email;
+      if (!subscriberEmail) {
+        return new Response(
+          JSON.stringify({ error: "User email not found" }),
+          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
       // Crear producto primero
       const productId = await getOrCreatePayPalProduct(accessToken);
       // Obtener o crear plan
       const planId = await getOrCreatePayPalPlan(accessToken, productId);
       
       // Crear suscripción
-      const subscription = await createPayPalSubscription(accessToken, planId, barbershop_id);
+      const subscription = await createPayPalSubscription(accessToken, planId, barbershop_id, subscriberEmail);
       
       // Guardar plan_id en la suscripción (actualizar si existe, crear si no)
       const { data: existingSubscription } = await supabase
