@@ -154,9 +154,13 @@ async function createPayPalSubscription(accessToken: string, planId: string, bar
 
   const callbackUrl = `${APP_URL}/subscription/callback`;
   
+  // PayPal requiere que start_time sea una fecha futura (mínimo 1 minuto desde ahora)
+  const startTime = new Date();
+  startTime.setMinutes(startTime.getMinutes() + 1); // Agregar 1 minuto para asegurar que sea futura
+  
   const subscriptionData = {
     plan_id: planId,
-    start_time: new Date().toISOString(), // Iniciar inmediatamente
+    start_time: startTime.toISOString(),
     subscriber: {
       email_address: subscriberEmail,
     },
@@ -410,30 +414,91 @@ const handler = async (req: Request): Promise<Response> => {
       }
 
       // Crear producto primero
-      const productId = await getOrCreatePayPalProduct(accessToken);
+      let productId: string;
+      try {
+        productId = await getOrCreatePayPalProduct(accessToken);
+        console.log(`Product ID obtained/created: ${productId}`);
+      } catch (error: any) {
+        console.error("Error creating PayPal product:", error);
+        return new Response(
+          JSON.stringify({ error: `Error al crear producto en PayPal: ${error.message}` }),
+          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
       // Obtener o crear plan
-      const planId = await getOrCreatePayPalPlan(accessToken, productId);
+      let planId: string;
+      try {
+        planId = await getOrCreatePayPalPlan(accessToken, productId);
+        console.log(`Plan ID obtained/created: ${planId}`);
+      } catch (error: any) {
+        console.error("Error creating PayPal plan:", error);
+        return new Response(
+          JSON.stringify({ error: `Error al crear plan en PayPal: ${error.message}` }),
+          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
       
       // Crear suscripción
-      const subscription = await createPayPalSubscription(accessToken, planId, barbershop_id, subscriberEmail);
+      let subscription: any;
+      try {
+        subscription = await createPayPalSubscription(accessToken, planId, barbershop_id, subscriberEmail);
+        console.log(`Subscription created in PayPal: ${subscription.id}`);
+      } catch (error: any) {
+        console.error("Error creating PayPal subscription:", error);
+        const errorMessage = error.message || "Error desconocido";
+        
+        // Mejorar mensaje de error con casos específicos
+        let userFriendlyMessage = "Error al crear suscripción en PayPal";
+        if (errorMessage.includes("INVALID_PARAMETER_VALUE") && errorMessage.includes("start_time")) {
+          userFriendlyMessage = "Error en la fecha de inicio de la suscripción. Por favor intenta nuevamente.";
+          console.error("Error específico de start_time - esto no debería ocurrir con el fix aplicado");
+        } else if (errorMessage.includes("INVALID_REQUEST") || errorMessage.includes("INVALID_PARAMETER")) {
+          userFriendlyMessage = "Error en los parámetros de la suscripción. Verifica la configuración.";
+        } else if (errorMessage.includes("UNAUTHORIZED") || errorMessage.includes("auth")) {
+          userFriendlyMessage = "Error de autenticación con PayPal. Verifica las credenciales.";
+        }
+        
+        return new Response(
+          JSON.stringify({ 
+            error: userFriendlyMessage,
+            details: PAYPAL_MODE === "sandbox" ? errorMessage : undefined
+          }),
+          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
       
       // Guardar plan_id en la suscripción (actualizar si existe, crear si no)
-      const { data: existingSubscription } = await supabase
+      const { data: existingSubscription, error: existingError } = await supabase
         .from("subscriptions")
-        .select("id")
+        .select("id, status")
         .eq("barbershop_id", barbershop_id)
         .maybeSingle();
 
+      if (existingError && existingError.code !== "PGRST116") {
+        // PGRST116 = no rows returned (no es un error real)
+        console.error("Error checking existing subscription:", existingError);
+        throw new Error(`Error al verificar suscripción existente: ${existingError.message}`);
+      }
+
       if (existingSubscription) {
-        await supabase
+        // Actualizar suscripción existente (puede estar cancelada, reactivándola)
+        const { error: updateError } = await supabase
           .from("subscriptions")
           .update({
             paypal_plan_id: planId,
             paypal_subscription_id: subscription.id,
+            status: "trial", // Resetear a trial ya que es una nueva suscripción en PayPal
           })
           .eq("id", existingSubscription.id);
+
+        if (updateError) {
+          console.error("Error updating subscription:", updateError);
+          throw new Error(`Error al actualizar suscripción: ${updateError.message}`);
+        }
       } else {
-        await supabase
+        // Crear nueva suscripción
+        const { error: insertError } = await supabase
           .from("subscriptions")
           .insert({
             barbershop_id,
@@ -441,6 +506,11 @@ const handler = async (req: Request): Promise<Response> => {
             paypal_subscription_id: subscription.id,
             status: "trial",
           });
+
+        if (insertError) {
+          console.error("Error inserting subscription:", insertError);
+          throw new Error(`Error al crear suscripción: ${insertError.message}`);
+        }
       }
 
       // Encontrar link de aprobación
