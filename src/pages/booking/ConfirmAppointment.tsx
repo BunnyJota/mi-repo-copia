@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, XCircle, AlertCircle, Clock, Loader2 } from "lucide-react";
 import { Logo } from "@/components/layout/Logo";
 import { supabase } from "@/integrations/supabase/client";
+import { useI18n } from "@/i18n";
 
 type ConfirmStatus = "loading" | "success" | "canceled" | "error" | "expired" | "already_processed";
 
