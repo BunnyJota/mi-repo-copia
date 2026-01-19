@@ -41,12 +41,44 @@ Ve a **Supabase Dashboard** → **Edge Functions** y verifica:
 
 - [ ] `create-subscription` está desplegada
 - [ ] `paypal-webhook` está desplegada
+- [ ] `subscription-audit` está desplegada
 
 Si no están desplegadas:
 ```bash
 supabase functions deploy create-subscription
 supabase functions deploy paypal-webhook
+supabase functions deploy subscription-audit
 ```
+
+### ⏰ Configurar Cron Job para subscription-audit
+
+El cron job debe ejecutarse diariamente para expirar trials y sincronizar estados. Configúralo usando **pg_cron**:
+
+1. Ve a **Supabase Dashboard** → **SQL Editor**
+2. Ejecuta el siguiente SQL para crear el cron job (se ejecuta diariamente a las 3 AM UTC):
+
+```sql
+-- Crear cron job para subscription-audit (diario a las 3 AM UTC)
+SELECT cron.schedule(
+  'subscription-audit-daily',
+  '0 3 * * *', -- 3 AM UTC diariamente
+  $$
+  SELECT
+    net.http_post(
+      url := 'https://signdzrwijfpxpvqragx.supabase.co/functions/v1/subscription-audit',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || current_setting('app.settings.service_role_key', true)
+      ),
+      body := '{}'::jsonb
+    ) AS request_id;
+  $$
+);
+```
+
+**Nota**: Reemplaza `signdzrwijfpxpvqragx` con tu Project Reference ID si es diferente.
+
+**Alternativa manual**: Puedes ejecutar la función manualmente desde el Dashboard cuando sea necesario.
 
 ---
 
@@ -82,16 +114,22 @@ Si todas las casillas anteriores están marcadas, **¡sí, debería funcionar!**
 1. **Prueba la integración**:
    - Inicia sesión en tu aplicación en producción
    - Ve a **Configuración** (Dashboard → Settings)
-   - Haz clic en **"Activar"** en la tarjeta de Suscripción
+   - Haz clic en **"Activar"** en la tarjeta de Suscripción (inicia el trial)
    - Deberías ser redirigido a PayPal
    - Completa el proceso de pago (con una cuenta PayPal real)
    - Deberías ser redirigido de vuelta a tu aplicación
-   - La suscripción debería aparecer como "Activa"
+   - La suscripción debería aparecer como "Trial" o "Activa" según el flujo
 
 2. **Si algo no funciona**:
    - Revisa los logs de las Edge Functions en Supabase Dashboard
    - Verifica que los secrets estén correctos
    - Asegúrate de que el webhook esté "Active" en PayPal
+
+3. **Prueba fin de trial y bloqueo**:
+   - En Supabase, edita `subscriptions.trial_ends_at` a una fecha pasada
+   - Verifica que la app muestre alerta y solo opción de pago
+   - Confirma que crear/editar citas o servicios queda bloqueado
+   - Ejecuta el cron `subscription-audit` o espera el schedule
 
 ---
 

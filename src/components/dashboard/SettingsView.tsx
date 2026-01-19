@@ -38,7 +38,7 @@ interface SettingsViewProps {
 }
 
 export function SettingsView({ onTabChange }: SettingsViewProps) {
-  const { barbershop, subscription, trialDaysRemaining } = useUserData();
+  const { barbershop, subscription, trialDaysRemaining, subscriptionAccess } = useUserData();
   const [barbershopDialogOpen, setBarbershopDialogOpen] = useState(false);
   const [hoursDialogOpen, setHoursDialogOpen] = useState(false);
   const [notificationsDialogOpen, setNotificationsDialogOpen] = useState(false);
@@ -89,8 +89,8 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
     if (subscription.status === "active") {
       return <Badge variant="default">Activo</Badge>;
     }
-    if (subscription.status === "past_due") {
-      return <Badge variant="destructive">Pago pendiente</Badge>;
+    if (subscriptionAccess.isPaymentRequired) {
+      return <Badge variant="destructive">Pago requerido</Badge>;
     }
     if (subscription.status === "canceled") {
       return <Badge variant="outline">Cancelado</Badge>;
@@ -168,7 +168,24 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
                 </div>
               </div>
               <div className="ml-4 flex gap-2">
-                {subscription?.status === "trial" && (
+                {subscriptionAccess.isPaymentRequired && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleActivateSubscription}
+                    disabled={createSubscription.isPending}
+                  >
+                    {createSubscription.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Procesando...
+                      </>
+                    ) : (
+                      "Pagar suscripción mensual"
+                    )}
+                  </Button>
+                )}
+                {subscription?.status === "trial" && !subscriptionAccess.isPaymentRequired && (
                   <Button 
                     variant="default" 
                     size="sm"
@@ -185,7 +202,7 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
                     )}
                   </Button>
                 )}
-                {subscription?.status === "active" && (
+                {subscription?.status === "active" && !subscriptionAccess.isPaymentRequired && (
                   <Button 
                     variant="outline" 
                     size="sm"
@@ -206,7 +223,7 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
                     )}
                   </Button>
                 )}
-                {subscription?.status === "canceled" && (
+                {subscription?.status === "canceled" && !subscriptionAccess.isPaymentRequired && (
                   <Button 
                     variant="outline" 
                     size="sm"
@@ -246,6 +263,16 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
                 <p className="mt-1 text-base font-semibold text-primary">
                   {formatDate(subscription.trial_ends_at)}
                 </p>
+              </div>
+            )}
+            {subscriptionAccess.isTrialEndingToday && (
+              <div className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning">
+                Tu prueba gratuita termina hoy. Realiza el pago para evitar la suspensión de funciones.
+              </div>
+            )}
+            {subscriptionAccess.isPaymentRequired && (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                Tu prueba gratuita terminó y la cuenta quedó limitada. Solo puedes continuar pagando la suscripción.
               </div>
             )}
             {subscription?.status === "canceled" && (

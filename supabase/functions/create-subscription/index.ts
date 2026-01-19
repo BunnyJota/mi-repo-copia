@@ -26,6 +26,7 @@ const PAYPAL_CLIENT_ID = Deno.env.get("PAYPAL_CLIENT_ID");
 const PAYPAL_CLIENT_SECRET = Deno.env.get("PAYPAL_CLIENT_SECRET");
 const PAYPAL_MODE = Deno.env.get("PAYPAL_MODE") || "sandbox";
 const APP_URL = Deno.env.get("APP_URL") || "https://trimly.it.com";
+const TRIAL_DAYS = 30;
 
 const PAYPAL_API_BASE = PAYPAL_MODE === "live"
   ? "https://api-m.paypal.com"
@@ -90,32 +91,65 @@ async function getOrCreatePayPalProduct(accessToken: string): Promise<string> {
   return data.id;
 }
 
-// Crear o obtener plan de PayPal ($10 USD mensual)
-async function getOrCreatePayPalPlan(accessToken: string, productId: string): Promise<string> {
-  const planName = "Trimly-Professional-Monthly";
+// Crear o obtener plan de PayPal ($10 USD mensual), con o sin trial
+async function getOrCreatePayPalPlan(accessToken: string, productId: string, includeTrial: boolean): Promise<string> {
+  const planName = includeTrial ? "Trimly-Professional-Monthly-Trial" : "Trimly-Professional-Monthly";
   
   const planData = {
     product_id: productId,
     name: planName,
     description: "Plan Profesional Trimly - Suscripción Mensual",
     status: "ACTIVE",
-    billing_cycles: [
-      {
-        frequency: {
-          interval_unit: "MONTH",
-          interval_count: 1,
-        },
-        tenure_type: "REGULAR",
-        sequence: 1,
-        total_cycles: 0, // 0 = sin fin
-        pricing_scheme: {
-          fixed_price: {
-            value: "10.00",
-            currency_code: "USD",
+    billing_cycles: includeTrial
+      ? [
+          {
+            frequency: {
+              interval_unit: "DAY",
+              interval_count: TRIAL_DAYS,
+            },
+            tenure_type: "TRIAL",
+            sequence: 1,
+            total_cycles: 1,
+            pricing_scheme: {
+              fixed_price: {
+                value: "0",
+                currency_code: "USD",
+              },
+            },
           },
-        },
-      },
-    ],
+          {
+            frequency: {
+              interval_unit: "MONTH",
+              interval_count: 1,
+            },
+            tenure_type: "REGULAR",
+            sequence: 2,
+            total_cycles: 0, // 0 = sin fin
+            pricing_scheme: {
+              fixed_price: {
+                value: "10.00",
+                currency_code: "USD",
+              },
+            },
+          },
+        ]
+      : [
+          {
+            frequency: {
+              interval_unit: "MONTH",
+              interval_count: 1,
+            },
+            tenure_type: "REGULAR",
+            sequence: 1,
+            total_cycles: 0, // 0 = sin fin
+            pricing_scheme: {
+              fixed_price: {
+                value: "10.00",
+                currency_code: "USD",
+              },
+            },
+          },
+        ],
     payment_preferences: {
       auto_bill_outstanding: true,
       setup_fee: {
@@ -146,6 +180,50 @@ async function getOrCreatePayPalPlan(accessToken: string, productId: string): Pr
   return data.id;
 }
 
+async function getOrCreatePayPalConfig(
+  accessToken: string,
+  supabase: any
+): Promise<{ paypal_product_id: string; paypal_trial_plan_id: string; paypal_regular_plan_id: string }> {
+  const { data: existingConfig, error: configError } = await supabase
+    .from("paypal_billing_config")
+    .select("paypal_product_id, paypal_trial_plan_id, paypal_regular_plan_id")
+    .maybeSingle();
+
+  if (configError) {
+    console.error("Error fetching PayPal billing config:", configError);
+  }
+
+  if (existingConfig?.paypal_product_id && existingConfig?.paypal_trial_plan_id && existingConfig?.paypal_regular_plan_id) {
+    return {
+      paypal_product_id: existingConfig.paypal_product_id,
+      paypal_trial_plan_id: existingConfig.paypal_trial_plan_id,
+      paypal_regular_plan_id: existingConfig.paypal_regular_plan_id,
+    };
+  }
+
+  const productId = await getOrCreatePayPalProduct(accessToken);
+  const trialPlanId = await getOrCreatePayPalPlan(accessToken, productId, true);
+  const regularPlanId = await getOrCreatePayPalPlan(accessToken, productId, false);
+
+  const { error: insertError } = await supabase
+    .from("paypal_billing_config")
+    .insert({
+      paypal_product_id: productId,
+      paypal_trial_plan_id: trialPlanId,
+      paypal_regular_plan_id: regularPlanId,
+    });
+
+  if (insertError) {
+    console.error("Error saving PayPal billing config:", insertError);
+  }
+
+  return {
+    paypal_product_id: productId,
+    paypal_trial_plan_id: trialPlanId,
+    paypal_regular_plan_id: regularPlanId,
+  };
+}
+
 // Crear suscripción en PayPal
 async function createPayPalSubscription(accessToken: string, planId: string, barbershopId: string, subscriberEmail: string): Promise<{ id: string; links: Array<{ href: string; rel: string; method: string }> }> {
   if (!subscriberEmail) {
@@ -154,13 +232,12 @@ async function createPayPalSubscription(accessToken: string, planId: string, bar
 
   const callbackUrl = `${APP_URL}/subscription/callback`;
   
-  // Para procesar el primer pago inmediatamente:
-  // Usamos start_time muy cercano al presente (5 segundos) para que PayPal lo acepte
-  // Pero activamos INMEDIATAMENTE desde el servidor después de la aprobación
-  // Esto hace que PayPal procese el pago en la activación, no espere al start_time
-  // La clave es activar la suscripción DESPUÉS de que se apruebe, no dejar que PayPal espere
+  // PayPal requiere que start_time sea una fecha futura
+  // Con CONTINUE, podemos usar una fecha más cercana ya que la activación es manual
+  // Usamos 1 minuto para asegurar que PayPal acepte el start_time
+  // Cuando activemos desde el servidor, el pago se procesará inmediatamente
   const startTime = new Date();
-  startTime.setSeconds(startTime.getSeconds() + 5); // 5 segundos para cumplir con el requisito de PayPal
+  startTime.setMinutes(startTime.getMinutes() + 1);
   
   const subscriptionData = {
     plan_id: planId,
@@ -172,11 +249,11 @@ async function createPayPalSubscription(accessToken: string, planId: string, bar
       brand_name: "Trimly",
       locale: "es-ES",
       shipping_preference: "NO_SHIPPING",
-      // Usar SUBSCRIBE_NOW para procesar el pago inmediatamente
-      // Con start_time de solo 5 segundos, PayPal debería procesar el pago cuando se active
-      // SUBSCRIBE_NOW procesa el pago inmediatamente al activar, no espera al start_time
-      // Esto asegura que el primer pago se procese correctamente ($10.00)
-      user_action: "SUBSCRIBE_NOW",
+      // Usar CONTINUE para evitar que PayPal intente activar desde el cliente
+      // La activación se manejará desde el servidor inmediatamente después de la aprobación
+      // Esto previene el error 400 en el endpoint de activación del cliente
+      // El pago se procesará cuando activemos la suscripción desde el servidor
+      user_action: "CONTINUE",
       payment_method: {
         payer_selected: "PAYPAL",
         payee_preferred: "IMMEDIATE_PAYMENT_REQUIRED",
@@ -430,28 +507,30 @@ const handler = async (req: Request): Promise<Response> => {
         );
       }
 
-      // Crear producto primero
-      let productId: string;
-      try {
-        productId = await getOrCreatePayPalProduct(accessToken);
-        console.log(`Product ID obtained/created: ${productId}`);
-      } catch (error: any) {
-        console.error("Error creating PayPal product:", error);
-        return new Response(
-          JSON.stringify({ error: `Error al crear producto en PayPal: ${error.message}` }),
-          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-        );
-      }
-
-      // Obtener o crear plan
+      // Obtener configuración de PayPal (reusar product/plan)
       let planId: string;
       try {
-        planId = await getOrCreatePayPalPlan(accessToken, productId);
+        const billingConfig = await getOrCreatePayPalConfig(accessToken, supabase);
+        const { data: existingSubscription } = await supabase
+          .from("subscriptions")
+          .select("trial_ends_at, status")
+          .eq("barbershop_id", barbershop_id)
+          .maybeSingle();
+
+        const now = new Date();
+        const trialExpired = existingSubscription?.trial_ends_at
+          ? new Date(existingSubscription.trial_ends_at).getTime() <= now.getTime()
+          : false;
+        const shouldSkipTrial = trialExpired || existingSubscription?.status === "past_due";
+
+        planId = shouldSkipTrial
+          ? billingConfig.paypal_regular_plan_id
+          : billingConfig.paypal_trial_plan_id;
         console.log(`Plan ID obtained/created: ${planId}`);
       } catch (error: any) {
-        console.error("Error creating PayPal plan:", error);
+        console.error("Error getting PayPal billing config:", error);
         return new Response(
-          JSON.stringify({ error: `Error al crear plan en PayPal: ${error.message}` }),
+          JSON.stringify({ error: `Error al obtener el plan de PayPal: ${error.message}` }),
           { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
         );
       }
@@ -485,10 +564,14 @@ const handler = async (req: Request): Promise<Response> => {
         );
       }
       
+      const trialStart = new Date();
+      const trialEnd = new Date(trialStart);
+      trialEnd.setDate(trialEnd.getDate() + TRIAL_DAYS);
+
       // Guardar plan_id en la suscripción (actualizar si existe, crear si no)
       const { data: existingSubscription, error: existingError } = await supabase
         .from("subscriptions")
-        .select("id, status")
+        .select("id, status, trial_ends_at, trial_started_at")
         .eq("barbershop_id", barbershop_id)
         .maybeSingle();
 
@@ -498,6 +581,12 @@ const handler = async (req: Request): Promise<Response> => {
         throw new Error(`Error al verificar suscripción existente: ${existingError.message}`);
       }
 
+      const now = new Date();
+      const existingTrialExpired = existingSubscription?.trial_ends_at
+        ? new Date(existingSubscription.trial_ends_at).getTime() <= now.getTime()
+        : false;
+      const shouldSkipTrial = existingTrialExpired || existingSubscription?.status === "past_due";
+
       if (existingSubscription) {
         // Actualizar suscripción existente (puede estar cancelada, reactivándola)
         const { error: updateError } = await supabase
@@ -505,7 +594,9 @@ const handler = async (req: Request): Promise<Response> => {
           .update({
             paypal_plan_id: planId,
             paypal_subscription_id: subscription.id,
-            status: "trial", // Resetear a trial ya que es una nueva suscripción en PayPal
+            status: shouldSkipTrial ? "past_due" : "trial",
+            trial_started_at: shouldSkipTrial ? existingSubscription?.trial_started_at : trialStart.toISOString(),
+            trial_ends_at: shouldSkipTrial ? existingSubscription?.trial_ends_at : trialEnd.toISOString(),
           })
           .eq("id", existingSubscription.id);
 
@@ -522,6 +613,8 @@ const handler = async (req: Request): Promise<Response> => {
             paypal_plan_id: planId,
             paypal_subscription_id: subscription.id,
             status: "trial",
+            trial_started_at: trialStart.toISOString(),
+            trial_ends_at: trialEnd.toISOString(),
           });
 
         if (insertError) {
@@ -665,7 +758,7 @@ const handler = async (req: Request): Promise<Response> => {
         );
       }
 
-      // Calcular fecha de fin del período (próximo pago)
+      // Calcular fecha de fin del período (próximo pago o fin de trial)
       // Prioridad: next_billing_time > start_time + 1 mes > fecha actual + 1 mes
       let currentPeriodEnd: Date;
       
@@ -688,13 +781,21 @@ const handler = async (req: Request): Promise<Response> => {
         console.log(`Calculated next payment date from today (fallback): ${currentPeriodEnd.toISOString()}`);
       }
 
-      // Mapear estados de PayPal a estados internos
-      let internalStatus = "trial";
+      // Mapear estados de PayPal a estados internos considerando trial
       const paypalStatus = subscription.status;
+      const now = new Date();
+      const trialEndsAt = subscription.billing_info?.next_billing_time
+        ? new Date(subscription.billing_info.next_billing_time)
+        : null;
+      const lastPaymentTime = subscription.billing_info?.last_payment?.time;
+      const isTrialPhase = !lastPaymentTime && trialEndsAt
+        ? trialEndsAt.getTime() > now.getTime()
+        : false;
+      let internalStatus = "trial";
+
       if (paypalStatus === "ACTIVE") {
-        internalStatus = "active";
+        internalStatus = isTrialPhase ? "trial" : "active";
       } else if (paypalStatus === "APPROVED" || paypalStatus === "APPROVAL_PENDING") {
-        // Si está aprobada pero no activa, marcarla como trial hasta que se active
         internalStatus = "trial";
       } else if (paypalStatus === "CANCELLED" || paypalStatus === "EXPIRED") {
         internalStatus = "canceled";
@@ -705,11 +806,14 @@ const handler = async (req: Request): Promise<Response> => {
       // Actualizar o crear suscripción en BD
       const { data: existingSubscription } = await supabase
         .from("subscriptions")
-        .select("id")
+        .select("id, trial_ends_at, trial_started_at")
         .eq("barbershop_id", finalBarbershopId)
         .maybeSingle();
 
       if (existingSubscription) {
+        const resolvedTrialStart = existingSubscription.trial_started_at || new Date().toISOString();
+        const resolvedTrialEnd = trialEndsAt?.toISOString() || existingSubscription.trial_ends_at;
+
         const { error: updateError } = await supabase
           .from("subscriptions")
           .update({
@@ -717,6 +821,8 @@ const handler = async (req: Request): Promise<Response> => {
             paypal_subscription_id: subscription_id,
             current_period_end: currentPeriodEnd.toISOString(),
             last_payment_status: paypalStatus,
+            trial_started_at: resolvedTrialStart,
+            trial_ends_at: resolvedTrialEnd,
           })
           .eq("id", existingSubscription.id);
 
@@ -728,6 +834,7 @@ const handler = async (req: Request): Promise<Response> => {
           );
         }
       } else {
+        const fallbackTrialEnd = trialEndsAt?.toISOString();
         const { error: insertError } = await supabase
           .from("subscriptions")
           .insert({
@@ -736,6 +843,8 @@ const handler = async (req: Request): Promise<Response> => {
             status: internalStatus,
             current_period_end: currentPeriodEnd.toISOString(),
             last_payment_status: paypalStatus,
+            trial_started_at: new Date().toISOString(),
+            trial_ends_at: fallbackTrialEnd,
           });
 
         if (insertError) {

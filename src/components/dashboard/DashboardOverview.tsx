@@ -31,6 +31,7 @@ import { DashboardTab } from "@/pages/dashboard/Dashboard";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/i18n";
+import { SubscriptionNotice } from "@/components/subscription/SubscriptionNotice";
 
 interface DashboardOverviewProps {
   onTabChange?: (tab: DashboardTab) => void;
@@ -125,6 +126,8 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
           {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
         </p>
       </div>
+
+      <SubscriptionNotice onTabChange={onTabChange} />
 
       {/* Booking Link Card */}
       <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">

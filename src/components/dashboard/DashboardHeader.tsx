@@ -19,7 +19,7 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ onSettingsClick }: DashboardHeaderProps) {
   const { signOut } = useAuth();
-  const { profile, barbershop, subscription, trialDaysRemaining, loading } = useUserData();
+  const { profile, barbershop, subscription, trialDaysRemaining, subscriptionAccess, loading } = useUserData();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -49,7 +49,7 @@ export function DashboardHeader({ onSettingsClick }: DashboardHeaderProps) {
   const getSubscriptionBadge = () => {
     if (!subscription) return null;
     
-    if (subscription.status === "trial") {
+    if (subscription.status === "trial" && trialDaysRemaining !== null) {
       return (
         <Badge variant="trial" className="text-xs">
           Trial: {trialDaysRemaining} días
@@ -61,8 +61,8 @@ export function DashboardHeader({ onSettingsClick }: DashboardHeaderProps) {
       return <Badge variant="active" className="text-xs">Activo</Badge>;
     }
     
-    if (subscription.status === "past_due") {
-      return <Badge variant="pastdue" className="text-xs">Pago pendiente</Badge>;
+    if (subscriptionAccess.isPaymentRequired) {
+      return <Badge variant="pastdue" className="text-xs">Pago requerido</Badge>;
     }
     
     return null;

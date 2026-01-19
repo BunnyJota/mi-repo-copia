@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { getSubscriptionAccess } from "@/lib/subscription";
 
 export interface UserProfile {
   id: string;
@@ -33,10 +34,12 @@ export interface Subscription {
   id: string;
   barbershop_id: string;
   status: "trial" | "active" | "past_due" | "canceled" | "inactive";
+  trial_started_at?: string | null;
   trial_ends_at: string | null;
   paypal_plan_id: string | null;
   paypal_subscription_id: string | null;
   current_period_end: string | null;
+  last_payment_at?: string | null;
 }
 
 export interface UserRole {
@@ -150,15 +153,7 @@ export function useUserData() {
   const isBarber = hasRole("barber");
   const isSuperAdmin = hasRole("super_admin");
 
-  const trialDaysRemaining = subscription?.trial_ends_at
-    ? Math.max(
-        0,
-        Math.ceil(
-          (new Date(subscription.trial_ends_at).getTime() - Date.now()) /
-            (1000 * 60 * 60 * 24)
-        )
-      )
-    : 0;
+  const subscriptionAccess = getSubscriptionAccess(subscription);
 
   return {
     profile,
@@ -171,6 +166,7 @@ export function useUserData() {
     isManager,
     isBarber,
     isSuperAdmin,
-    trialDaysRemaining,
+    trialDaysRemaining: subscriptionAccess.trialDaysRemaining,
+    subscriptionAccess,
   };
 }

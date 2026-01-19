@@ -278,12 +278,22 @@ const handler = async (req: Request): Promise<Response> => {
             currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
           }
 
+          const lastPaymentTime = event.resource?.billing_info?.last_payment?.time;
+          const trialEndsAt = event.resource?.billing_info?.next_billing_time
+            ? new Date(event.resource.billing_info.next_billing_time)
+            : null;
+          const isTrialPhase = !lastPaymentTime && trialEndsAt
+            ? trialEndsAt.getTime() > Date.now()
+            : false;
+          const internalStatus = isTrialPhase ? "trial" : "active";
+
           await supabase
             .from("subscriptions")
             .update({
-              status: "active",
+              status: internalStatus,
               current_period_end: currentPeriodEnd.toISOString(),
-              last_payment_status: "ACTIVE",
+              last_payment_status: event.resource?.status || "ACTIVE",
+              trial_ends_at: trialEndsAt?.toISOString(),
             })
             .eq("barbershop_id", barbershopId);
 
@@ -391,6 +401,7 @@ const handler = async (req: Request): Promise<Response> => {
               status: "active",
               current_period_end: nextBillingTime.toISOString(),
               last_payment_status: "COMPLETED",
+              last_payment_at: event.resource?.create_time || new Date().toISOString(),
             })
             .eq("barbershop_id", barbershopId);
 
