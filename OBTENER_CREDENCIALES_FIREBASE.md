@@ -13,12 +13,20 @@
    - Haz clic en **Register app**
 7. **Copia** la configuración que aparece (firebaseConfig)
 
-## Paso 2: VAPID Key (1 minuto)
+## Paso 2: VAPID Key (1 minuto) ⚠️ IMPORTANTE
 
 1. En la misma página (Project Settings), ve a la pestaña **Cloud Messaging**
 2. Desplázate hasta **Web configuration**
-3. En **Web Push certificates**, haz clic en **Generate key pair**
-4. **Copia** la Key pair generada (es una cadena larga)
+3. En **Web Push certificates**:
+   - Si NO hay un par de claves, haz clic en **"Generate key pair"**
+   - **IMPORTANTE**: Después de generar, verás DOS claves:
+     - **Key pair** (esta es la CLAVE PÚBLICA - la que necesitas copiar)
+     - **Private key** (NO uses esta, es solo para el servidor)
+4. **Copia SOLO la Key pair (clave pública)** - es una cadena larga sin espacios
+5. **Verifica que la clave:**
+   - No tenga espacios ni saltos de línea
+   - Solo contenga letras (A-Z, a-z), números (0-9), guiones (-) y guiones bajos (_)
+   - Tenga aproximadamente 87 caracteres de longitud
 
 ## Paso 3: Server Key (30 segundos)
 
