@@ -20,19 +20,55 @@ const firebaseConfig = {
 let firebaseApp: FirebaseApp | null = null;
 let messaging: Messaging | null = null;
 
+/**
+ * Valida que todas las variables de entorno de Firebase estén configuradas
+ */
+function validateFirebaseConfig(): { valid: boolean; missing: string[] } {
+  const required = [
+    "VITE_FIREBASE_API_KEY",
+    "VITE_FIREBASE_AUTH_DOMAIN",
+    "VITE_FIREBASE_PROJECT_ID",
+    "VITE_FIREBASE_STORAGE_BUCKET",
+    "VITE_FIREBASE_MESSAGING_SENDER_ID",
+    "VITE_FIREBASE_APP_ID",
+  ];
+
+  const missing: string[] = [];
+  for (const key of required) {
+    const value = import.meta.env[key];
+    if (!value || value.trim() === "") {
+      missing.push(key);
+    }
+  }
+
+  return {
+    valid: missing.length === 0,
+    missing,
+  };
+}
+
 // Inicializar Firebase solo una vez
 function getFirebaseMessaging(): Messaging | null {
   if (typeof window === "undefined") {
     return null; // SSR
   }
 
+  // Validar configuración antes de inicializar
+  const validation = validateFirebaseConfig();
+  if (!validation.valid) {
+    console.error("Firebase configuration incomplete. Missing:", validation.missing);
+    return null;
+  }
+
   try {
     if (!firebaseApp) {
       firebaseApp = initializeApp(firebaseConfig);
+      console.log("Firebase initialized successfully");
     }
 
     if (!messaging && "serviceWorker" in navigator) {
       messaging = getMessaging(firebaseApp);
+      console.log("Firebase Messaging initialized");
     }
 
     return messaging;
@@ -164,6 +200,10 @@ export function usePushNotifications(barbershopId: string | null) {
         throw new Error("User not authenticated");
       }
 
+      if (!token || token.trim() === "") {
+        throw new Error("Token FCM inválido o vacío");
+      }
+
       const deviceType: "web" | "android" | "ios" = 
         /Android/i.test(navigator.userAgent) ? "android" :
         /iPhone|iPad|iPod/i.test(navigator.userAgent) ? "ios" :
@@ -171,14 +211,23 @@ export function usePushNotifications(barbershopId: string | null) {
 
       const deviceName = `${deviceType} - ${navigator.userAgent.substring(0, 50)}`;
 
+      console.log("Registrando token FCM:", { deviceType, deviceName, tokenLength: token.length });
+
       // Verificar si el token ya existe
-      const { data: existingToken } = await supabase
+      const { data: existingToken, error: lookupError } = await supabase
         .from("push_notification_tokens")
         .select("id")
         .eq("fcm_token", token)
-        .single();
+        .maybeSingle();
+
+      if (lookupError && lookupError.code !== "PGRST116") {
+        // PGRST116 = no rows returned, que es OK
+        console.error("Error buscando token existente:", lookupError);
+        throw lookupError;
+      }
 
       if (existingToken) {
+        console.log("Token existente encontrado, actualizando...");
         // Actualizar last_used_at
         const { error } = await supabase
           .from("push_notification_tokens")
@@ -188,11 +237,16 @@ export function usePushNotifications(barbershopId: string | null) {
           })
           .eq("id", existingToken.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error("Error actualizando token existente:", error);
+          throw error;
+        }
+        console.log("Token actualizado exitosamente");
         return existingToken.id;
       }
 
       // Crear nuevo token
+      console.log("Creando nuevo token FCM...");
       const { data, error } = await supabase
         .from("push_notification_tokens")
         .insert({
@@ -205,11 +259,20 @@ export function usePushNotifications(barbershopId: string | null) {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error creando nuevo token:", error);
+        throw error;
+      }
+      
+      console.log("Token FCM creado exitosamente:", data.id);
       return data.id;
     },
     onError: (error: any) => {
       console.error("Error registering FCM token:", error);
+      toast.error(`Error al registrar token: ${error instanceof Error ? error.message : "Error desconocido"}`);
+    },
+    onSuccess: () => {
+      console.log("Token FCM registrado exitosamente en la base de datos");
     },
   });
 
@@ -234,16 +297,49 @@ export function usePushNotifications(barbershopId: string | null) {
         return;
       }
 
+      // Validar configuración de Firebase antes de continuar
+      const firebaseValidation = validateFirebaseConfig();
+      if (!firebaseValidation.valid) {
+        const missingList = firebaseValidation.missing.join(", ");
+        toast.error(`Configuración de Firebase incompleta. Faltan: ${missingList}. Verifica tu archivo .env.local`);
+        return;
+      }
+
+      const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+      if (!vapidKey || vapidKey.trim() === "") {
+        toast.error("VAPID Key no configurada. Verifica tu archivo .env.local");
+        return;
+      }
+
       // Registrar service worker y esperar a que esté activo
-      if ("serviceWorker" in navigator) {
-        try {
-          // Primero, intentar desregistrar cualquier Service Worker existente
-          const existingRegistrations = await navigator.serviceWorker.getRegistrations();
+      if (!("serviceWorker" in navigator)) {
+        toast.error("Tu navegador no soporta Service Workers");
+        return;
+      }
+
+      let activeRegistration: ServiceWorkerRegistration | null = null;
+
+      try {
+        // Verificar si ya existe un Service Worker activo
+        const existingRegistrations = await navigator.serviceWorker.getRegistrations();
+        const existingActive = existingRegistrations.find(
+          (reg) => reg.active && reg.active.scriptURL.includes("firebase-messaging-sw.js")
+        );
+
+        if (existingActive && existingActive.active) {
+          console.log("Service Worker ya está activo, reutilizando:", existingActive.active);
+          activeRegistration = existingActive;
+        } else {
+          // Si hay registrations pero no están activas o son de otro archivo, desregistrarlas
           for (const registration of existingRegistrations) {
-            await registration.unregister();
+            if (!registration.active || !registration.active.scriptURL.includes("firebase-messaging-sw.js")) {
+              console.log("Desregistrando Service Worker obsoleto:", registration.scope);
+              await registration.unregister();
+            }
           }
 
           // Registrar el nuevo Service Worker
+          console.log("Registrando nuevo Service Worker...");
           const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", {
             scope: "/",
           });
@@ -252,96 +348,119 @@ export function usePushNotifications(barbershopId: string | null) {
 
           // Esperar a que el Service Worker esté activo
           if (registration.installing) {
-            await new Promise<void>((resolve) => {
-              registration.installing!.addEventListener("statechange", () => {
-                if (registration.installing!.state === "activated") {
+            console.log("Service Worker está instalando...");
+            await new Promise<void>((resolve, reject) => {
+              const timeout = setTimeout(() => {
+                reject(new Error("Timeout esperando activación del Service Worker (10s)"));
+              }, 10000);
+
+              registration.installing.addEventListener("statechange", () => {
+                const state = registration.installing?.state;
+                console.log("Service Worker state changed:", state);
+                
+                if (state === "activated") {
+                  clearTimeout(timeout);
                   resolve();
+                } else if (state === "redundant") {
+                  clearTimeout(timeout);
+                  reject(new Error("Service Worker se volvió redundante durante la instalación"));
                 }
               });
             });
           } else if (registration.waiting) {
-            // Si está en waiting, activarlo
+            console.log("Service Worker está en waiting, activando...");
             registration.waiting.postMessage({ type: "SKIP_WAITING" });
-            await new Promise<void>((resolve) => {
-              registration.waiting!.addEventListener("statechange", () => {
-                if (registration.waiting!.state === "activated") {
+            
+            // Esperar a que se active
+            await new Promise<void>((resolve, reject) => {
+              const timeout = setTimeout(() => {
+                reject(new Error("Timeout esperando activación del Service Worker (10s)"));
+              }, 10000);
+
+              const checkActive = () => {
+                if (registration.active && registration.active.state === "activated") {
+                  clearTimeout(timeout);
                   resolve();
+                } else if (registration.waiting?.state === "redundant") {
+                  clearTimeout(timeout);
+                  reject(new Error("Service Worker se volvió redundante"));
+                } else {
+                  setTimeout(checkActive, 100);
                 }
-              });
+              };
+              checkActive();
             });
-          } else if (registration.active) {
-            // Si ya está activo, esperar un momento para asegurar que está listo
-            await new Promise((resolve) => setTimeout(resolve, 1000));
           }
 
-          // Verificar que el Service Worker esté realmente activo
-          const activeWorker = registration.active;
-          if (!activeWorker) {
-            throw new Error("Service Worker no se activó correctamente");
+          // Usar navigator.serviceWorker.ready como fallback
+          activeRegistration = await navigator.serviceWorker.ready;
+          
+          if (!activeRegistration.active || activeRegistration.active.state !== "activated") {
+            throw new Error("Service Worker no se activó correctamente. Estado: " + activeRegistration.active?.state);
           }
 
-          console.log("Service Worker activo:", activeWorker);
-        } catch (error) {
-          console.error("Error registering service worker:", error);
-          toast.error(`Error al registrar el service worker: ${error instanceof Error ? error.message : "Error desconocido"}`);
+          console.log("Service Worker activo y listo:", activeRegistration.active.state);
+        }
+
+        // Esperar un momento adicional para asegurar que Firebase puede acceder al Service Worker
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        // Obtener token FCM
+        const messagingInstance = getFirebaseMessaging();
+        if (!messagingInstance) {
+          toast.error("Error al inicializar Firebase Messaging. Verifica la consola para más detalles.");
           return;
         }
-      } else {
-        toast.error("Tu navegador no soporta Service Workers");
-        return;
-      }
 
-      // Esperar un momento adicional para asegurar que Firebase puede acceder al Service Worker
-      await new Promise((resolve) => setTimeout(resolve, 500));
+        console.log("Obteniendo token FCM...");
+        const token = await getToken(messagingInstance, {
+          vapidKey: vapidKey,
+          serviceWorkerRegistration: activeRegistration,
+        });
 
-      // Obtener token FCM
-      const messagingInstance = getFirebaseMessaging();
-      if (!messagingInstance) {
-        toast.error("Error al inicializar Firebase Messaging");
-        return;
-      }
-
-      const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
-      if (!vapidKey) {
-        toast.error("VAPID Key no configurada. Verifica tu archivo .env.local");
-        return;
-      }
-
-      const token = await getToken(messagingInstance, {
-        vapidKey: vapidKey,
-        serviceWorkerRegistration: await navigator.serviceWorker.ready,
-      });
-
-      if (!token) {
-        toast.error("No se pudo obtener el token de notificación");
-        return;
-      }
-
-      // Registrar token en la base de datos
-      await registerTokenMutation.mutateAsync(token);
-      toast.success("Notificaciones push activadas");
-
-      // Configurar listener para mensajes en primer plano
-      onMessage(messagingInstance, (payload) => {
-        console.log("Message received:", payload);
-        
-        // Mostrar notificación manualmente si el usuario está en primer plano
-        if (payload.notification) {
-          new Notification(payload.notification.title || "Nueva notificación", {
-            body: payload.notification.body,
-            icon: payload.notification.icon || "/favicon.ico",
-            badge: "/favicon.ico",
-            tag: payload.data?.appointmentId,
-            data: payload.data,
-          });
+        if (!token) {
+          toast.error("No se pudo obtener el token de notificación. Verifica que el Service Worker esté activo.");
+          return;
         }
 
-        // Opcional: mostrar toast también
-        toast.info(payload.notification?.body || "Nueva notificación");
-      });
+        console.log("Token FCM obtenido exitosamente");
+
+        // Registrar token en la base de datos
+        await registerTokenMutation.mutateAsync(token);
+        toast.success("Notificaciones push activadas correctamente");
+
+        // Configurar listener para mensajes en primer plano
+        onMessage(messagingInstance, (payload) => {
+          console.log("Message received in foreground:", payload);
+          
+          // Mostrar notificación manualmente si el usuario está en primer plano
+          if (payload.notification) {
+            try {
+              new Notification(payload.notification.title || "Nueva notificación", {
+                body: payload.notification.body,
+                icon: payload.notification.icon || "/favicon.ico",
+                badge: "/favicon.ico",
+                tag: payload.data?.appointmentId,
+                data: payload.data,
+              });
+            } catch (notifError) {
+              console.error("Error showing notification:", notifError);
+            }
+          }
+
+          // Mostrar toast también
+          toast.info(payload.notification?.body || "Nueva notificación");
+        });
+      } catch (swError) {
+        console.error("Error registering service worker:", swError);
+        const errorMessage = swError instanceof Error ? swError.message : "Error desconocido";
+        toast.error(`Error al registrar el service worker: ${errorMessage}`);
+        return;
+      }
     } catch (error: any) {
       console.error("Error requesting notification permission:", error);
-      toast.error(`Error al activar notificaciones: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+      toast.error(`Error al activar notificaciones: ${errorMessage}`);
     }
   }, [isSupported, user, barbershopId, registerTokenMutation]);
 

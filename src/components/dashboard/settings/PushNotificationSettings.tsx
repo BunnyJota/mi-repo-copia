@@ -48,7 +48,7 @@ export function PushNotificationSettings({ barbershopId, isOwner }: PushNotifica
   const [deleteTokenId, setDeleteTokenId] = useState<string | null>(null);
 
   // Obtener empleados del barbershop (solo para owners)
-  const { data: staffMembers, isLoading: staffLoading } = useQuery({
+  const { data: staffMembers, isLoading: staffLoading, error: staffError } = useQuery({
     queryKey: ["staff-notification-preferences", barbershopId],
     queryFn: async () => {
       if (!barbershopId || !isOwner) return [];
@@ -59,7 +59,10 @@ export function PushNotificationSettings({ barbershopId, isOwner }: PushNotifica
         .select("user_id, display_name, email")
         .eq("barbershop_id", barbershopId);
 
-      if (profilesError) throw profilesError;
+      if (profilesError) {
+        console.error("Error obteniendo perfiles de empleados:", profilesError);
+        throw profilesError;
+      }
 
       // Obtener preferencias de notificaciones para cada usuario
       const staffWithPrefs: StaffMember[] = [];
@@ -295,6 +298,12 @@ export function PushNotificationSettings({ barbershopId, isOwner }: PushNotifica
           <CardContent>
             {staffLoading ? (
               <div className="text-sm text-muted-foreground">Cargando empleados...</div>
+            ) : staffError ? (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3">
+                <p className="text-sm text-destructive">
+                  Error al cargar empleados: {staffError instanceof Error ? staffError.message : "Error desconocido"}
+                </p>
+              </div>
             ) : staffMembers && staffMembers.length > 0 ? (
               <div className="space-y-4">
                 {staffMembers
