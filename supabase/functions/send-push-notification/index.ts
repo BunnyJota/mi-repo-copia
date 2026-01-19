@@ -625,6 +625,31 @@ const handler = async (req: Request): Promise<Response> => {
       },
     };
 
+    // Guardar notificación en la tabla para historial (campana)
+    try {
+      const notificationsToInsert = filteredUserIds.map((userId) => ({
+        user_id: userId,
+        barbershop_id: appointment.barbershop_id,
+        appointment_id: appointment.id,
+        type,
+        title: notificationTitle,
+        body: notificationBody,
+        data: notificationPayload.data,
+      }));
+
+      const { error: insertError } = await supabase
+        .from("notifications")
+        .insert(notificationsToInsert);
+
+      if (insertError) {
+        console.error(`[${requestId}] Error inserting notifications:`, insertError);
+      } else {
+        console.log(`[${requestId}] Notifications stored: ${notificationsToInsert.length}`);
+      }
+    } catch (insertErr) {
+      console.error(`[${requestId}] Failed to store notifications:`, insertErr);
+    }
+
     // Enviar notificaciones a todos los tokens
     const allTokens: string[] = [];
     filteredUserIds.forEach(userId => {
