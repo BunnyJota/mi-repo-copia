@@ -15,9 +15,10 @@ import { useUserData } from "@/hooks/useUserData";
 
 interface DashboardHeaderProps {
   onSettingsClick?: () => void;
+  onNotificationsClick?: () => void;
 }
 
-export function DashboardHeader({ onSettingsClick }: DashboardHeaderProps) {
+export function DashboardHeader({ onSettingsClick, onNotificationsClick }: DashboardHeaderProps) {
   const { signOut } = useAuth();
   const { profile, barbershop, subscription, trialDaysRemaining, subscriptionAccess, loading } = useUserData();
   const navigate = useNavigate();
@@ -33,6 +34,14 @@ export function DashboardHeader({ onSettingsClick }: DashboardHeaderProps) {
     } else {
       // Fallback: usar evento personalizado
       window.dispatchEvent(new CustomEvent("navigate-to-settings"));
+    }
+  };
+
+  const handleNotificationsClick = () => {
+    if (onNotificationsClick) {
+      onNotificationsClick();
+    } else {
+      window.dispatchEvent(new CustomEvent("open-notifications-dialog"));
     }
   };
 
@@ -81,7 +90,12 @@ export function DashboardHeader({ onSettingsClick }: DashboardHeaderProps) {
 
       <div className="flex items-center gap-2">
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative h-9 w-9">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative h-9 w-9"
+          onClick={handleNotificationsClick}
+        >
           <Bell className="h-5 w-5" />
         </Button>
 
@@ -106,7 +120,11 @@ export function DashboardHeader({ onSettingsClick }: DashboardHeaderProps) {
               <User className="mr-2 h-4 w-4" />
               Mi perfil
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleSettingsClick}>
+            <DropdownMenuItem
+              onSelect={() => {
+                handleSettingsClick();
+              }}
+            >
               <Settings className="mr-2 h-4 w-4" />
               Configuración
             </DropdownMenuItem>
