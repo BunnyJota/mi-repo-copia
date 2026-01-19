@@ -234,17 +234,65 @@ export function usePushNotifications(barbershopId: string | null) {
         return;
       }
 
-      // Registrar service worker
+      // Registrar service worker y esperar a que esté activo
       if ("serviceWorker" in navigator) {
         try {
-          const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+          // Primero, intentar desregistrar cualquier Service Worker existente
+          const existingRegistrations = await navigator.serviceWorker.getRegistrations();
+          for (const registration of existingRegistrations) {
+            await registration.unregister();
+          }
+
+          // Registrar el nuevo Service Worker
+          const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", {
+            scope: "/",
+          });
+          
           console.log("Service Worker registered:", registration);
+
+          // Esperar a que el Service Worker esté activo
+          if (registration.installing) {
+            await new Promise<void>((resolve) => {
+              registration.installing!.addEventListener("statechange", () => {
+                if (registration.installing!.state === "activated") {
+                  resolve();
+                }
+              });
+            });
+          } else if (registration.waiting) {
+            // Si está en waiting, activarlo
+            registration.waiting.postMessage({ type: "SKIP_WAITING" });
+            await new Promise<void>((resolve) => {
+              registration.waiting!.addEventListener("statechange", () => {
+                if (registration.waiting!.state === "activated") {
+                  resolve();
+                }
+              });
+            });
+          } else if (registration.active) {
+            // Si ya está activo, esperar un momento para asegurar que está listo
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+
+          // Verificar que el Service Worker esté realmente activo
+          const activeWorker = registration.active;
+          if (!activeWorker) {
+            throw new Error("Service Worker no se activó correctamente");
+          }
+
+          console.log("Service Worker activo:", activeWorker);
         } catch (error) {
           console.error("Error registering service worker:", error);
-          toast.error("Error al registrar el service worker");
+          toast.error(`Error al registrar el service worker: ${error instanceof Error ? error.message : "Error desconocido"}`);
           return;
         }
+      } else {
+        toast.error("Tu navegador no soporta Service Workers");
+        return;
       }
+
+      // Esperar un momento adicional para asegurar que Firebase puede acceder al Service Worker
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       // Obtener token FCM
       const messagingInstance = getFirebaseMessaging();
@@ -253,8 +301,15 @@ export function usePushNotifications(barbershopId: string | null) {
         return;
       }
 
+      const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+      if (!vapidKey) {
+        toast.error("VAPID Key no configurada. Verifica tu archivo .env.local");
+        return;
+      }
+
       const token = await getToken(messagingInstance, {
-        vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+        vapidKey: vapidKey,
+        serviceWorkerRegistration: await navigator.serviceWorker.ready,
       });
 
       if (!token) {
