@@ -431,66 +431,158 @@ export function usePushNotifications(barbershopId: string | null) {
             scope: "/",
           });
           
-          console.log("Service Worker registered:", registration);
+          console.log("Service Worker registered:", {
+            installing: registration.installing?.state,
+            waiting: registration.waiting?.state,
+            active: registration.active?.state,
+          });
 
-          // Esperar a que el Service Worker esté activo
-          if (registration.installing) {
-            console.log("Service Worker está instalando...");
-            await new Promise<void>((resolve, reject) => {
+          // Función helper para esperar activación
+          const waitForActivation = (reg: ServiceWorkerRegistration, timeoutMs = 10000): Promise<void> => {
+            return new Promise((resolve, reject) => {
+              // Si ya está activo, resolver inmediatamente
+              if (reg.active && reg.active.state === "activated") {
+                console.log("Service Worker ya está activo");
+                resolve();
+                return;
+              }
+
               const timeout = setTimeout(() => {
-                reject(new Error("Timeout esperando activación del Service Worker (10s)"));
-              }, 10000);
+                reject(new Error(`Timeout esperando activación del Service Worker (${timeoutMs}ms). Estado actual: installing=${reg.installing?.state}, waiting=${reg.waiting?.state}, active=${reg.active?.state}`));
+              }, timeoutMs);
 
-              registration.installing.addEventListener("statechange", () => {
-                const state = registration.installing?.state;
-                console.log("Service Worker state changed:", state);
+              // Listener para cambios de estado en installing
+              const installingHandler = () => {
+                const state = reg.installing?.state;
+                console.log("Service Worker installing state changed:", state);
                 
-                if (state === "activated") {
+                if (state === "activated" || (state === "installed" && !reg.waiting)) {
+                  // Si se instaló, puede que necesite activarse
+                  if (reg.active && reg.active.state === "activated") {
+                    clearTimeout(timeout);
+                    reg.installing?.removeEventListener("statechange", installingHandler);
+                    resolve();
+                  }
+                } else if (state === "redundant") {
                   clearTimeout(timeout);
+                  reg.installing?.removeEventListener("statechange", installingHandler);
+                  reject(new Error("Service Worker se volvió redundante durante la instalación"));
+                }
+              };
+
+              // Listener para cambios de estado en waiting
+              const waitingHandler = () => {
+                const state = reg.waiting?.state;
+                console.log("Service Worker waiting state changed:", state);
+                
+                if (state === "activated" || (reg.active && reg.active.state === "activated")) {
+                  clearTimeout(timeout);
+                  reg.waiting?.removeEventListener("statechange", waitingHandler);
                   resolve();
                 } else if (state === "redundant") {
                   clearTimeout(timeout);
-                  reject(new Error("Service Worker se volvió redundante durante la instalación"));
-                }
-              });
-            });
-          } else if (registration.waiting) {
-            console.log("Service Worker está en waiting, activando...");
-            registration.waiting.postMessage({ type: "SKIP_WAITING" });
-            
-            // Esperar a que se active
-            await new Promise<void>((resolve, reject) => {
-              const timeout = setTimeout(() => {
-                reject(new Error("Timeout esperando activación del Service Worker (10s)"));
-              }, 10000);
-
-              const checkActive = () => {
-                if (registration.active && registration.active.state === "activated") {
-                  clearTimeout(timeout);
-                  resolve();
-                } else if (registration.waiting?.state === "redundant") {
-                  clearTimeout(timeout);
+                  reg.waiting?.removeEventListener("statechange", waitingHandler);
                   reject(new Error("Service Worker se volvió redundante"));
-                } else {
-                  setTimeout(checkActive, 100);
                 }
               };
-              checkActive();
+
+              // Listener para cambios en active
+              const activeHandler = () => {
+                if (reg.active && reg.active.state === "activated") {
+                  clearTimeout(timeout);
+                  reg.active.removeEventListener("statechange", activeHandler);
+                  reg.installing?.removeEventListener("statechange", installingHandler);
+                  reg.waiting?.removeEventListener("statechange", waitingHandler);
+                  resolve();
+                }
+              };
+
+              // Agregar listeners
+              if (reg.installing) {
+                reg.installing.addEventListener("statechange", installingHandler);
+              }
+              if (reg.waiting) {
+                reg.waiting.addEventListener("statechange", waitingHandler);
+                // Si hay un waiting, activarlo
+                console.log("Service Worker está en waiting, activando...");
+                reg.waiting.postMessage({ type: "SKIP_WAITING" });
+              }
+              if (reg.active) {
+                reg.active.addEventListener("statechange", activeHandler);
+              }
+
+              // Polling como fallback (verificar cada 200ms)
+              const pollInterval = setInterval(() => {
+                if (reg.active && reg.active.state === "activated") {
+                  clearInterval(pollInterval);
+                  clearTimeout(timeout);
+                  reg.installing?.removeEventListener("statechange", installingHandler);
+                  reg.waiting?.removeEventListener("statechange", waitingHandler);
+                  reg.active.removeEventListener("statechange", activeHandler);
+                  resolve();
+                }
+              }, 200);
             });
-          }
+          };
 
-          // Usar navigator.serviceWorker.ready como fallback
-          activeRegistration = await navigator.serviceWorker.ready;
+          // Esperar a que el Service Worker esté activo usando múltiples estrategias
+          console.log("Esperando activación del Service Worker...");
           
-          if (!activeRegistration.active || activeRegistration.active.state !== "activated") {
-            throw new Error("Service Worker no se activó correctamente. Estado: " + activeRegistration.active?.state);
+          // Estrategia 1: Si hay un waiting, activarlo
+          if (registration.waiting) {
+            console.log("Service Worker está en waiting, enviando SKIP_WAITING...");
+            registration.waiting.postMessage({ type: "SKIP_WAITING" });
           }
 
-          console.log("Service Worker activo y listo:", activeRegistration.active.state);
+          // Estrategia 2: Esperar con waitForActivation si está instalando
+          if (registration.installing) {
+            try {
+              await waitForActivation(registration, 8000);
+            } catch (activationError) {
+              console.warn("Error en waitForActivation, usando fallback:", activationError);
+              // Continuar con ready como fallback
+            }
+          }
+
+          // Estrategia 3: Usar navigator.serviceWorker.ready (más confiable)
+          console.log("Verificando Service Worker con ready...");
+          try {
+            activeRegistration = await Promise.race([
+              navigator.serviceWorker.ready,
+              new Promise<ServiceWorkerRegistration>((_, reject) => 
+                setTimeout(() => reject(new Error("Timeout en serviceWorker.ready")), 5000)
+              )
+            ]);
+          } catch (readyError) {
+            console.warn("Error en serviceWorker.ready:", readyError);
+            // Usar la registration que tenemos
+            activeRegistration = registration;
+          }
+          
+          // Verificar que realmente está activo
+          if (!activeRegistration.active) {
+            // Esperar un poco más y verificar de nuevo
+            console.log("Service Worker no está activo aún, esperando 1 segundo más...");
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            activeRegistration = await navigator.serviceWorker.ready;
+          }
+
+          if (!activeRegistration.active) {
+            throw new Error("Service Worker no tiene un worker activo después de todos los intentos");
+          }
+
+          const finalState = activeRegistration.active.state;
+          console.log("Service Worker activo y listo. Estado final:", finalState);
+          
+          // Aceptar "activated" o "activating" como válidos
+          if (finalState !== "activated" && finalState !== "activating") {
+            console.warn(`Service Worker en estado inesperado: ${finalState}, pero continuando...`);
+          }
         }
 
-        // Esperar un momento adicional para asegurar que Firebase puede acceder al Service Worker
-        await new Promise((resolve) => setTimeout(resolve, 300));
+          // Esperar un momento adicional para asegurar que Firebase puede acceder al Service Worker
+          // También dar tiempo para que el Service Worker se estabilice
+          await new Promise((resolve) => setTimeout(resolve, 500));
 
         // Obtener token FCM
         const messagingInstance = getFirebaseMessaging();
