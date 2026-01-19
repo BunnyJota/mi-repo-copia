@@ -47,6 +47,74 @@ function validateFirebaseConfig(): { valid: boolean; missing: string[] } {
   };
 }
 
+/**
+ * Convierte una clave base64 estándar a base64url si es necesario
+ */
+function convertBase64ToBase64Url(base64: string): string {
+  return base64
+    .replace(/\+/g, "-")  // Reemplazar + con -
+    .replace(/\//g, "_")  // Reemplazar / con _
+    .replace(/=/g, "");   // Remover padding
+}
+
+/**
+ * Valida y normaliza la VAPID key al formato correcto para Firebase
+ * La VAPID key debe ser una clave pública en formato base64url (URL-safe base64)
+ */
+function validateAndNormalizeVapidKey(vapidKey: string): string {
+  if (!vapidKey || vapidKey.trim() === "") {
+    throw new Error("VAPID key está vacía");
+  }
+
+  // Remover espacios y saltos de línea
+  let normalized = vapidKey.trim().replace(/\s+/g, "").replace(/\r?\n|\r/g, "");
+
+  // Si contiene caracteres de base64 estándar (+ o /), convertir a base64url
+  if (normalized.includes("+") || normalized.includes("/")) {
+    console.log("Detectado formato base64 estándar, convirtiendo a base64url...");
+    normalized = convertBase64ToBase64Url(normalized);
+  }
+
+  // Verificar que solo contiene caracteres válidos para base64url
+  // base64url: A-Z, a-z, 0-9, -, _
+  const base64urlRegex = /^[A-Za-z0-9_-]+$/;
+  if (!base64urlRegex.test(normalized)) {
+    const invalidChars = normalized.match(/[^A-Za-z0-9_-]/g);
+    throw new Error(
+      `VAPID key contiene caracteres inválidos: ${invalidChars?.join(", ")}. ` +
+      `Debe estar en formato base64url (solo A-Z, a-z, 0-9, -, _). ` +
+      `Verifica que copiaste la clave completa desde Firebase Console → Project Settings → Cloud Messaging → Web Push certificates`
+    );
+  }
+
+  // Verificar longitud mínima (una clave pública EC P-256 debe tener al menos 65 bytes cuando se decodifica)
+  // En base64url, esto es aproximadamente 87 caracteres (65 * 4/3 redondeado)
+  // Pero Firebase puede usar diferentes longitudes, así que verificamos un rango razonable
+  if (normalized.length < 80) {
+    throw new Error(
+      `VAPID key parece ser demasiado corta (${normalized.length} caracteres). ` +
+      `Una clave pública válida debería tener aproximadamente 87 caracteres. ` +
+      `Verifica que copiaste la clave completa desde Firebase Console.`
+    );
+  }
+
+  // Verificar longitud máxima razonable (no más de 200 caracteres)
+  if (normalized.length > 200) {
+    throw new Error(
+      `VAPID key parece ser demasiado larga (${normalized.length} caracteres). ` +
+      `Verifica que copiaste solo la clave pública (Key pair), no la clave privada.`
+    );
+  }
+
+  console.log("VAPID key validada y normalizada:", {
+    length: normalized.length,
+    preview: normalized.substring(0, 30) + "...",
+    format: "base64url",
+  });
+
+  return normalized;
+}
+
 // Inicializar Firebase solo una vez
 function getFirebaseMessaging(): Messaging | null {
   if (typeof window === "undefined") {
@@ -305,9 +373,28 @@ export function usePushNotifications(barbershopId: string | null) {
         return;
       }
 
-      const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
-      if (!vapidKey || vapidKey.trim() === "") {
-        toast.error("VAPID Key no configurada. Verifica tu archivo .env.local");
+      let vapidKey: string;
+      try {
+        const rawVapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+        console.log("VAPID Key raw desde env:", {
+          exists: !!rawVapidKey,
+          length: rawVapidKey?.length || 0,
+          preview: rawVapidKey ? rawVapidKey.substring(0, 30) + "..." : "undefined",
+        });
+        
+        if (!rawVapidKey || rawVapidKey.trim() === "") {
+          toast.error("VAPID Key no configurada. Verifica tu archivo .env o .env.local y asegúrate de que VITE_FIREBASE_VAPID_KEY esté definida.");
+          return;
+        }
+        vapidKey = validateAndNormalizeVapidKey(rawVapidKey);
+        console.log("VAPID Key validada exitosamente:", {
+          length: vapidKey.length,
+          preview: vapidKey.substring(0, 30) + "...",
+        });
+      } catch (vapidError) {
+        console.error("Error validando VAPID key:", vapidError);
+        const errorMessage = vapidError instanceof Error ? vapidError.message : "Error desconocido";
+        toast.error(`VAPID Key inválida: ${errorMessage}. Verifica que copiaste la clave completa desde Firebase Console -> Project Settings -> Cloud Messaging -> Web Push certificates`);
         return;
       }
 
@@ -412,14 +499,45 @@ export function usePushNotifications(barbershopId: string | null) {
           return;
         }
 
-        console.log("Obteniendo token FCM...");
-        const token = await getToken(messagingInstance, {
-          vapidKey: vapidKey,
-          serviceWorkerRegistration: activeRegistration,
+        console.log("Obteniendo token FCM con VAPID key:", {
+          vapidKeyLength: vapidKey.length,
+          vapidKeyPreview: vapidKey.substring(0, 30) + "...",
+          serviceWorkerActive: activeRegistration.active?.state,
         });
 
-        if (!token) {
-          toast.error("No se pudo obtener el token de notificación. Verifica que el Service Worker esté activo.");
+        let token: string;
+        try {
+          token = await getToken(messagingInstance, {
+            vapidKey: vapidKey,
+            serviceWorkerRegistration: activeRegistration,
+          });
+        } catch (tokenError: any) {
+          console.error("Error obteniendo token FCM:", tokenError);
+          
+          // Proporcionar mensajes de error más específicos
+          if (tokenError?.code === "messaging/invalid-vapid-key" || 
+              tokenError?.message?.includes("applicationServerKey") ||
+              tokenError?.name === "InvalidAccessError") {
+            const errorMsg = `
+La VAPID Key no es válida. Por favor verifica:
+
+1. Ve a Firebase Console → Project Settings → Cloud Messaging → Web Push certificates
+2. Si no hay un par de claves, haz clic en "Generate key pair"
+3. Copia la CLAVE PÚBLICA (no la privada)
+4. Asegúrate de copiar la clave completa sin espacios ni saltos de línea
+5. La clave debe estar en formato base64url (solo letras, números, guiones y guiones bajos)
+
+VAPID Key actual (primeros 30 caracteres): ${vapidKey.substring(0, 30)}...
+            `.trim();
+            toast.error(errorMsg);
+          } else {
+            toast.error(`Error al obtener token FCM: ${tokenError?.message || "Error desconocido"}`);
+          }
+          return;
+        }
+
+        if (!token || token.trim() === "") {
+          toast.error("No se pudo obtener el token de notificación. Verifica que el Service Worker esté activo y que la VAPID key sea correcta.");
           return;
         }
 
