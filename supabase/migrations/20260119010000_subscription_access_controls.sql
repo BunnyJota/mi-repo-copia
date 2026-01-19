@@ -58,32 +58,110 @@ AS $$
   LIMIT 1
 $$;
 
+-- Helper: verificar si el usuario actual es owner del barbershop
+CREATE OR REPLACE FUNCTION public.is_owner(_barbershop_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.user_roles ur
+    JOIN public.profiles p ON p.user_id = ur.user_id
+    WHERE ur.user_id = auth.uid()
+      AND ur.role = 'owner'
+      AND p.barbershop_id = _barbershop_id
+  )
+$$;
+
 -- =====================
 -- ACTUALIZAR POLICIES
 -- =====================
 
 -- Appointments
 DROP POLICY IF EXISTS "Barbershop members can manage appointments" ON public.appointments;
-CREATE POLICY "Barbershop members can manage appointments" ON public.appointments
-  FOR ALL USING (public.user_belongs_to_barbershop(auth.uid(), barbershop_id))
+DROP POLICY IF EXISTS "Barbershop members can view appointments" ON public.appointments;
+DROP POLICY IF EXISTS "Barbershop members can insert appointments" ON public.appointments;
+DROP POLICY IF EXISTS "Barbershop members can update appointments" ON public.appointments;
+DROP POLICY IF EXISTS "Owners can delete appointments" ON public.appointments;
+
+-- Permitir SELECT/INSERT/UPDATE a miembros del barbershop
+CREATE POLICY "Barbershop members can view appointments" ON public.appointments
+  FOR SELECT USING (
+    public.user_belongs_to_barbershop(auth.uid(), barbershop_id)
+    AND public.subscription_has_access(barbershop_id)
+  );
+
+CREATE POLICY "Barbershop members can insert appointments" ON public.appointments
+  FOR INSERT WITH CHECK (
+    public.user_belongs_to_barbershop(auth.uid(), barbershop_id)
+    AND public.subscription_has_access(barbershop_id)
+  );
+
+CREATE POLICY "Barbershop members can update appointments" ON public.appointments
+  FOR UPDATE USING (
+    public.user_belongs_to_barbershop(auth.uid(), barbershop_id)
+    AND public.subscription_has_access(barbershop_id)
+  )
   WITH CHECK (
     public.user_belongs_to_barbershop(auth.uid(), barbershop_id)
     AND public.subscription_has_access(barbershop_id)
   );
 
+-- Solo owners pueden eliminar
+CREATE POLICY "Owners can delete appointments" ON public.appointments
+  FOR DELETE USING (
+    public.user_belongs_to_barbershop(auth.uid(), barbershop_id)
+    AND public.subscription_has_access(barbershop_id)
+    AND public.is_owner(barbershop_id)
+  );
+
+-- Mantener política pública para reservas públicas
 DROP POLICY IF EXISTS "Public can insert appointments" ON public.appointments;
 CREATE POLICY "Public can insert appointments" ON public.appointments
   FOR INSERT WITH CHECK (public.subscription_has_access(barbershop_id));
 
 -- Clients
 DROP POLICY IF EXISTS "Barbershop members can manage clients" ON public.clients;
-CREATE POLICY "Barbershop members can manage clients" ON public.clients
-  FOR ALL USING (public.user_belongs_to_barbershop(auth.uid(), barbershop_id))
+DROP POLICY IF EXISTS "Barbershop members can view clients" ON public.clients;
+DROP POLICY IF EXISTS "Barbershop members can insert clients" ON public.clients;
+DROP POLICY IF EXISTS "Barbershop members can update clients" ON public.clients;
+DROP POLICY IF EXISTS "Owners can delete clients" ON public.clients;
+
+-- Permitir SELECT/INSERT/UPDATE a miembros del barbershop
+CREATE POLICY "Barbershop members can view clients" ON public.clients
+  FOR SELECT USING (
+    public.user_belongs_to_barbershop(auth.uid(), barbershop_id)
+    AND public.subscription_has_access(barbershop_id)
+  );
+
+CREATE POLICY "Barbershop members can insert clients" ON public.clients
+  FOR INSERT WITH CHECK (
+    public.user_belongs_to_barbershop(auth.uid(), barbershop_id)
+    AND public.subscription_has_access(barbershop_id)
+  );
+
+CREATE POLICY "Barbershop members can update clients" ON public.clients
+  FOR UPDATE USING (
+    public.user_belongs_to_barbershop(auth.uid(), barbershop_id)
+    AND public.subscription_has_access(barbershop_id)
+  )
   WITH CHECK (
     public.user_belongs_to_barbershop(auth.uid(), barbershop_id)
     AND public.subscription_has_access(barbershop_id)
   );
 
+-- Solo owners pueden eliminar
+CREATE POLICY "Owners can delete clients" ON public.clients
+  FOR DELETE USING (
+    public.user_belongs_to_barbershop(auth.uid(), barbershop_id)
+    AND public.subscription_has_access(barbershop_id)
+    AND public.is_owner(barbershop_id)
+  );
+
+-- Mantener política pública para reservas públicas
 DROP POLICY IF EXISTS "Public can insert clients for booking" ON public.clients;
 CREATE POLICY "Public can insert clients for booking" ON public.clients
   FOR INSERT WITH CHECK (public.subscription_has_access(barbershop_id));
@@ -99,11 +177,40 @@ CREATE POLICY "Barbershop members can manage services" ON public.services
 
 -- Staff profiles
 DROP POLICY IF EXISTS "Barbershop members can manage staff" ON public.staff_profiles;
-CREATE POLICY "Barbershop members can manage staff" ON public.staff_profiles
-  FOR ALL USING (public.user_belongs_to_barbershop(auth.uid(), barbershop_id))
+DROP POLICY IF EXISTS "Barbershop members can view staff" ON public.staff_profiles;
+DROP POLICY IF EXISTS "Barbershop members can insert staff" ON public.staff_profiles;
+DROP POLICY IF EXISTS "Barbershop members can update staff" ON public.staff_profiles;
+DROP POLICY IF EXISTS "Owners can delete staff" ON public.staff_profiles;
+
+-- Permitir SELECT/INSERT/UPDATE a miembros del barbershop
+CREATE POLICY "Barbershop members can view staff" ON public.staff_profiles
+  FOR SELECT USING (
+    public.user_belongs_to_barbershop(auth.uid(), barbershop_id)
+    AND public.subscription_has_access(barbershop_id)
+  );
+
+CREATE POLICY "Barbershop members can insert staff" ON public.staff_profiles
+  FOR INSERT WITH CHECK (
+    public.user_belongs_to_barbershop(auth.uid(), barbershop_id)
+    AND public.subscription_has_access(barbershop_id)
+  );
+
+CREATE POLICY "Barbershop members can update staff" ON public.staff_profiles
+  FOR UPDATE USING (
+    public.user_belongs_to_barbershop(auth.uid(), barbershop_id)
+    AND public.subscription_has_access(barbershop_id)
+  )
   WITH CHECK (
     public.user_belongs_to_barbershop(auth.uid(), barbershop_id)
     AND public.subscription_has_access(barbershop_id)
+  );
+
+-- Solo owners pueden eliminar
+CREATE POLICY "Owners can delete staff" ON public.staff_profiles
+  FOR DELETE USING (
+    public.user_belongs_to_barbershop(auth.uid(), barbershop_id)
+    AND public.subscription_has_access(barbershop_id)
+    AND public.is_owner(barbershop_id)
   );
 
 -- Availability rules
