@@ -22,6 +22,30 @@ const firebaseConfig = {
 // Inicializar Firebase
 firebase.initializeApp(firebaseConfig);
 
+// Activar el Service Worker inmediatamente cuando se instala
+self.addEventListener('install', (event) => {
+  console.log('[firebase-messaging-sw.js] Service Worker installing...');
+  // Forzar activación inmediata
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  console.log('[firebase-messaging-sw.js] Service Worker activating...');
+  // Tomar control de todas las páginas inmediatamente
+  event.waitUntil(
+    clients.claim().then(() => {
+      console.log('[firebase-messaging-sw.js] Service Worker activo y controlando todas las páginas');
+    })
+  );
+});
+
+// Escuchar mensajes del cliente para activar el Service Worker
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 // Obtener instancia de messaging
 const messaging = firebase.messaging();
 
