@@ -12,6 +12,17 @@ import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserData } from "@/hooks/useUserData";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+
+interface NotificationItem {
+  id: string;
+  title: string;
+  body: string;
+  created_at: string;
+  read_at: string | null;
+  data: Record<string, any> | null;
+}
 
 interface DashboardHeaderProps {
   onSettingsClick?: () => void;
@@ -19,9 +30,10 @@ interface DashboardHeaderProps {
 }
 
 export function DashboardHeader({ onSettingsClick, onNotificationsClick }: DashboardHeaderProps) {
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const { profile, barbershop, subscription, trialDaysRemaining, subscriptionAccess, loading } = useUserData();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const handleSignOut = async () => {
     await signOut();
@@ -42,6 +54,59 @@ export function DashboardHeader({ onSettingsClick, onNotificationsClick }: Dashb
       onNotificationsClick();
     } else {
       window.dispatchEvent(new CustomEvent("open-notifications-dialog"));
+    }
+  };
+
+  const { data: notifications = [] } = useQuery({
+    queryKey: ["notifications", user?.id],
+    enabled: !!user?.id,
+    queryFn: async (): Promise<NotificationItem[]> => {
+      if (!user?.id) return [];
+      const { data, error } = await (supabase as any)
+        .from("notifications")
+        .select("id, title, body, created_at, read_at, data")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error("Error fetching notifications:", error);
+        return [];
+      }
+      return data || [];
+    },
+  });
+
+  const unreadCount = notifications.filter((notification) => !notification.read_at).length;
+
+  const markNotificationRead = async (notificationId: string) => {
+    try {
+      const { error } = await (supabase as any)
+        .from("notifications")
+        .update({ read_at: new Date().toISOString() })
+        .eq("id", notificationId);
+
+      if (error) {
+        console.error("Error marking notification as read:", error);
+        return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["notifications", user?.id] });
+    } catch (err) {
+      console.error("Error marking notification as read:", err);
+    }
+  };
+
+  const formatTimestamp = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleString("es-ES", {
+        hour: "2-digit",
+        minute: "2-digit",
+        day: "2-digit",
+        month: "short",
+      });
+    } catch {
+      return "";
     }
   };
 
@@ -90,14 +155,59 @@ export function DashboardHeader({ onSettingsClick, onNotificationsClick }: Dashb
 
       <div className="flex items-center gap-2">
         {/* Notifications */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative h-9 w-9"
-          onClick={handleNotificationsClick}
-        >
-          <Bell className="h-5 w-5" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="relative h-9 w-9">
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-destructive" />
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-80">
+            <div className="px-2 py-1.5">
+              <p className="text-sm font-medium">Notificaciones</p>
+              <p className="text-xs text-muted-foreground">
+                {unreadCount > 0 ? `${unreadCount} sin leer` : "Sin notificaciones nuevas"}
+              </p>
+            </div>
+            <DropdownMenuSeparator />
+            {notifications.length === 0 ? (
+              <div className="px-2 py-3 text-sm text-muted-foreground">
+                No hay notificaciones todavía.
+              </div>
+            ) : (
+              notifications.map((notification) => (
+                <DropdownMenuItem
+                  key={notification.id}
+                  className="flex flex-col items-start gap-1 py-2"
+                  onSelect={() => {
+                    if (!notification.read_at) {
+                      markNotificationRead(notification.id);
+                    }
+                  }}
+                >
+                  <div className="flex w-full items-center justify-between gap-2">
+                    <p className="text-sm font-medium">{notification.title}</p>
+                    <span className="text-[10px] text-muted-foreground">
+                      {formatTimestamp(notification.created_at)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{notification.body}</p>
+                </DropdownMenuItem>
+              ))
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => {
+                handleNotificationsClick();
+              }}
+            >
+              <Settings className="mr-2 h-4 w-4" />
+              Configurar notificaciones
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* User menu */}
         <DropdownMenu>
