@@ -21,3 +21,8 @@ verify_jwt = true
 
 [functions.paypal-webhook]
 verify_jwt = false
+
+[functions.subscription-audit]
+verify_jwt = false
+# NOTA: El schedule debe configurarse manualmente en Supabase Dashboard
+# o usando pg_cron. Ver documentación en CHECKLIST_VERIFICACION_PAYPAL.md

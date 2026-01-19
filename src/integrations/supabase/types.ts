@@ -331,6 +331,33 @@ export type Database = {
           },
         ]
       }
+      paypal_billing_config: {
+        Row: {
+          created_at: string
+          id: string
+          paypal_product_id: string
+          paypal_regular_plan_id: string
+          paypal_trial_plan_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          paypal_product_id: string
+          paypal_regular_plan_id: string
+          paypal_trial_plan_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          paypal_product_id?: string
+          paypal_regular_plan_id?: string
+          paypal_trial_plan_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       paypal_webhook_events: {
         Row: {
           event_id: string
@@ -543,10 +570,12 @@ export type Database = {
           created_at: string
           current_period_end: string | null
           id: string
+          last_payment_at: string | null
           last_payment_status: string | null
           paypal_plan_id: string | null
           paypal_subscription_id: string | null
           status: Database["public"]["Enums"]["subscription_status"]
+          trial_started_at: string | null
           trial_ends_at: string | null
           updated_at: string
         }
@@ -555,10 +584,12 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           id?: string
+          last_payment_at?: string | null
           last_payment_status?: string | null
           paypal_plan_id?: string | null
           paypal_subscription_id?: string | null
           status?: Database["public"]["Enums"]["subscription_status"]
+          trial_started_at?: string | null
           trial_ends_at?: string | null
           updated_at?: string
         }
@@ -567,10 +598,12 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           id?: string
+          last_payment_at?: string | null
           last_payment_status?: string | null
           paypal_plan_id?: string | null
           paypal_subscription_id?: string | null
           status?: Database["public"]["Enums"]["subscription_status"]
+          trial_started_at?: string | null
           trial_ends_at?: string | null
           updated_at?: string
         }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DashboardNav } from "@/components/dashboard/DashboardNav";
@@ -12,16 +12,36 @@ import { ServicesView } from "@/components/dashboard/ServicesView";
 import { StaffView } from "@/components/dashboard/StaffView";
 import { ReportsView } from "@/components/dashboard/ReportsView";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { useUserData } from "@/hooks/useUserData";
+import { toast } from "sonner";
 
 export type DashboardTab = "overview" | "agenda" | "appointments" | "clients" | "services" | "staff" | "reports" | "settings";
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
+  const { subscriptionAccess, loading: userLoading } = useUserData();
+
+  const handleTabChange = (tab: DashboardTab) => {
+    const restrictedTabs: DashboardTab[] = ["agenda", "appointments", "clients", "services", "staff", "reports"];
+    if (!userLoading && subscriptionAccess.isPaymentRequired && restrictedTabs.includes(tab)) {
+      toast.error("Tu cuenta está limitada. Realiza el pago para continuar.");
+      setActiveTab("settings");
+      return;
+    }
+    setActiveTab(tab);
+  };
+
+  useEffect(() => {
+    const restrictedTabs: DashboardTab[] = ["agenda", "appointments", "clients", "services", "staff", "reports"];
+    if (!userLoading && subscriptionAccess.isPaymentRequired && restrictedTabs.includes(activeTab)) {
+      setActiveTab("settings");
+    }
+  }, [activeTab, subscriptionAccess.isPaymentRequired, userLoading]);
 
   const renderContent = () => {
     switch (activeTab) {
       case "overview":
-        return <DashboardOverview onTabChange={setActiveTab} />;
+        return <DashboardOverview onTabChange={handleTabChange} />;
       case "agenda":
         return <AgendaView />;
       case "appointments":
@@ -35,7 +55,7 @@ const Dashboard = () => {
       case "reports":
         return <ReportsView />;
       case "settings":
-        return <SettingsView onTabChange={setActiveTab} />;
+        return <SettingsView onTabChange={handleTabChange} />;
       default:
         return <DashboardOverview />;
     }
@@ -45,13 +65,13 @@ const Dashboard = () => {
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-surface-sunken">
         {/* Sidebar for desktop */}
-        <DashboardSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        <DashboardSidebar activeTab={activeTab} onTabChange={handleTabChange} />
         
         <SidebarInset className="flex flex-col">
           {/* Header */}
           <header className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b bg-background px-4">
             <SidebarTrigger className="hidden md:flex" />
-            <DashboardHeader onSettingsClick={() => setActiveTab("settings")} />
+            <DashboardHeader onSettingsClick={() => handleTabChange("settings")} />
           </header>
           
           {/* Main content */}
@@ -68,7 +88,7 @@ const Dashboard = () => {
           </main>
 
           {/* Bottom nav for mobile */}
-          <DashboardNav activeTab={activeTab} onTabChange={setActiveTab} />
+          <DashboardNav activeTab={activeTab} onTabChange={handleTabChange} />
         </SidebarInset>
       </div>
     </SidebarProvider>
