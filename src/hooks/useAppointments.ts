@@ -1,8 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserData } from "./useUserData";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
+import { toast } from "sonner";
 
 export interface Appointment {
   id: string;
@@ -246,6 +247,31 @@ export function useAppointmentStats() {
       todayRevenue: 0,
       todayPaidRevenue: 0,
       pendingCount: 0,
+    },
+  });
+}
+
+export function useDeleteAppointment() {
+  const queryClient = useQueryClient();
+  const { barbershop } = useUserData();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("appointments")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["appointment-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      toast.success("Cita eliminada correctamente");
+    },
+    onError: (error) => {
+      toast.error("Error al eliminar la cita: " + error.message);
     },
   });
 }

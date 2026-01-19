@@ -23,7 +23,7 @@ import { useI18n } from "@/i18n";
 export function ServicesView() {
   const { data: services, isLoading } = useServices();
   const deleteService = useDeleteService();
-  const { barbershop } = useUserData();
+  const { barbershop, isOwner } = useUserData();
   const { lang } = useI18n();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
@@ -115,6 +115,7 @@ export function ServicesView() {
                   onEdit={handleEdit}
                   onDelete={setDeletingService}
                   formatPrice={formatPrice}
+                  canDelete={isOwner}
                 />
               ))}
             </div>
@@ -133,6 +134,7 @@ export function ServicesView() {
                   onEdit={handleEdit}
                   onDelete={setDeletingService}
                   formatPrice={formatPrice}
+                  canDelete={isOwner}
                 />
               ))}
             </div>
@@ -178,11 +180,13 @@ function ServiceCard({
   onEdit,
   onDelete,
   formatPrice,
+  canDelete,
 }: {
   service: Service;
   onEdit: (service: Service) => void;
   onDelete: (service: Service) => void;
   formatPrice: (price: number) => string;
+  canDelete: boolean;
 }) {
   return (
     <Card className={!service.is_active ? "opacity-60" : undefined}>
@@ -224,14 +228,16 @@ function ServiceCard({
             >
               <Pencil className="h-4 w-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onDelete(service)}
-              className="h-9 w-9 text-destructive hover:text-destructive"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            {canDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onDelete(service)}
+                className="h-9 w-9 text-destructive hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
       </CardContent>

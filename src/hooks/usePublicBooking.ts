@@ -691,6 +691,23 @@ export function useCreateBooking() {
           console.error("Failed to send email:", emailErr);
         }
 
+        // Send push notification for new appointment
+        try {
+          const { error: pushError } = await supabase.functions.invoke("send-push-notification", {
+            body: {
+              type: "new_appointment",
+              appointmentId: appointment.id,
+            },
+          });
+
+          if (pushError) {
+            console.error("Error sending push notification:", pushError);
+            // Don't throw - appointment was created successfully
+          }
+        } catch (pushErr) {
+          console.error("Failed to send push notification:", pushErr);
+        }
+
         return appointment;
       } catch (error) {
         throw mapBookingError(error);

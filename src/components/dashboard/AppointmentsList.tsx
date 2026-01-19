@@ -38,13 +38,24 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { useAppointments } from "@/hooks/useAppointments";
+import { useAppointments, useDeleteAppointment } from "@/hooks/useAppointments";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { useUserData } from "@/hooks/useUserData";
 import { useI18n } from "@/i18n";
+import { Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type AppointmentStatus = "pending" | "confirmed" | "completed" | "canceled" | "no_show" | "rescheduled";
 
@@ -60,13 +71,21 @@ const statusConfig: Record<AppointmentStatus, { label: string; variant: "pending
 export function AppointmentsList() {
   const [searchQuery, setSearchQuery] = useState("");
   const { data: appointments, isLoading } = useAppointments();
-  const { barbershop } = useUserData();
+  const { barbershop, isOwner } = useUserData();
   const { lang } = useI18n();
   const queryClient = useQueryClient();
+  const deleteAppointment = useDeleteAppointment();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<{ id: string; total: number } | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "other">("cash");
   const [paymentAmount, setPaymentAmount] = useState("");
+  const [deletingAppointment, setDeletingAppointment] = useState<{ id: string; clientName: string } | null>(null);
+
+  const handleDelete = async () => {
+    if (!deletingAppointment) return;
+    await deleteAppointment.mutateAsync(deletingAppointment.id);
+    setDeletingAppointment(null);
+  };
 
   const updateAppointmentStatus = async (appointmentId: string, status: "completed" | "canceled") => {
     try {
@@ -218,6 +237,15 @@ export function AppointmentsList() {
                               Cancelar cita
                             </DropdownMenuItem>
                           )}
+                          {isOwner && (
+                            <DropdownMenuItem
+                              onClick={() => setDeletingAppointment({ id: apt.id, clientName: apt.client.name })}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Eliminar cita
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -299,6 +327,29 @@ export function AppointmentsList() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={!!deletingAppointment}
+        onOpenChange={() => setDeletingAppointment(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar cita?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. La cita de "{deletingAppointment?.clientName}" será eliminada permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

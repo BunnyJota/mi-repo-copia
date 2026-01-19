@@ -3,23 +3,44 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Plus, Pencil, Calendar, User } from "lucide-react";
+import { Plus, Pencil, Calendar, User, Trash2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import {
   useAllStaff,
   useToggleStaffActive,
+  useDeleteStaff,
   type StaffProfile,
 } from "@/hooks/useStaffManagement";
 import { StaffFormDialog } from "./StaffFormDialog";
 import { StaffAvailabilityDialog } from "./StaffAvailabilityDialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUserData } from "@/hooks/useUserData";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export function StaffView() {
   const { data: staff, isLoading } = useAllStaff();
   const toggleActive = useToggleStaffActive();
+  const deleteStaff = useDeleteStaff();
+  const { isOwner } = useUserData();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<StaffProfile | null>(null);
   const [availabilityStaff, setAvailabilityStaff] = useState<StaffProfile | null>(null);
+  const [deletingStaff, setDeletingStaff] = useState<StaffProfile | null>(null);
+
+  const handleDelete = async () => {
+    if (!deletingStaff) return;
+    await deleteStaff.mutateAsync(deletingStaff.id);
+    setDeletingStaff(null);
+  };
 
   const handleEdit = (member: StaffProfile) => {
     setEditingStaff(member);
@@ -111,7 +132,9 @@ export function StaffView() {
                   onEdit={handleEdit}
                   onToggleActive={handleToggleActive}
                   onEditAvailability={setAvailabilityStaff}
+                  onDelete={setDeletingStaff}
                   getInitials={getInitials}
+                  canDelete={isOwner}
                 />
               ))}
             </div>
@@ -130,7 +153,9 @@ export function StaffView() {
                   onEdit={handleEdit}
                   onToggleActive={handleToggleActive}
                   onEditAvailability={setAvailabilityStaff}
+                  onDelete={setDeletingStaff}
                   getInitials={getInitials}
+                  canDelete={isOwner}
                 />
               ))}
             </div>
@@ -149,6 +174,29 @@ export function StaffView() {
         onOpenChange={() => setAvailabilityStaff(null)}
         staff={availabilityStaff}
       />
+
+      <AlertDialog
+        open={!!deletingStaff}
+        onOpenChange={() => setDeletingStaff(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar barbero?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. El barbero "{deletingStaff?.display_name}" será eliminado permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -158,13 +206,17 @@ function StaffCard({
   onEdit,
   onToggleActive,
   onEditAvailability,
+  onDelete,
   getInitials,
+  canDelete,
 }: {
   member: StaffProfile;
   onEdit: (member: StaffProfile) => void;
   onToggleActive: (member: StaffProfile) => void;
   onEditAvailability: (member: StaffProfile) => void;
+  onDelete: (member: StaffProfile) => void;
   getInitials: (name: string) => string;
+  canDelete: boolean;
 }) {
   return (
     <Card className={!member.is_active ? "opacity-60" : undefined}>
@@ -217,6 +269,17 @@ function StaffCard({
             >
               <Pencil className="h-4 w-4" />
             </Button>
+            {canDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onDelete(member)}
+                className="h-9 w-9 text-destructive hover:text-destructive"
+                title="Eliminar"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
             <Switch
               checked={member.is_active}
               onCheckedChange={() => onToggleActive(member)}

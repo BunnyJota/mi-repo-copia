@@ -18,13 +18,34 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useClients } from "@/hooks/useClients";
+import { useClients, useDeleteClient } from "@/hooks/useClients";
+import { useUserData } from "@/hooks/useUserData";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
+import { Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export function ClientsList() {
   const [searchQuery, setSearchQuery] = useState("");
   const { data: clients, isLoading } = useClients();
+  const deleteClient = useDeleteClient();
+  const { isOwner } = useUserData();
+  const [deletingClient, setDeletingClient] = useState<{ id: string; name: string } | null>(null);
+
+  const handleDelete = async () => {
+    if (!deletingClient) return;
+    await deleteClient.mutateAsync(deletingClient.id);
+    setDeletingClient(null);
+  };
 
   const filteredClients = (clients || []).filter(
     (client) =>
@@ -118,6 +139,15 @@ export function ClientsList() {
                           <DropdownMenuItem>Ver historial</DropdownMenuItem>
                           <DropdownMenuItem>Editar</DropdownMenuItem>
                           <DropdownMenuItem>Nueva cita</DropdownMenuItem>
+                          {isOwner && (
+                            <DropdownMenuItem
+                              onClick={() => setDeletingClient({ id: client.id, name: client.name })}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Eliminar
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -135,6 +165,29 @@ export function ClientsList() {
           ))
         )}
       </div>
+
+      <AlertDialog
+        open={!!deletingClient}
+        onOpenChange={() => setDeletingClient(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar cliente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. El cliente "{deletingClient?.name}" será eliminado permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

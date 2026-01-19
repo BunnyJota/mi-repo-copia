@@ -199,6 +199,31 @@ export function useToggleStaffActive() {
   });
 }
 
+export function useDeleteStaff() {
+  const queryClient = useQueryClient();
+  const { barbershop } = useUserData();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("staff_profiles")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["all-staff", barbershop?.id] });
+      queryClient.invalidateQueries({ queryKey: ["public-staff"] });
+      queryClient.invalidateQueries({ queryKey: ["available-slots"] });
+      toast.success("Barbero eliminado correctamente");
+    },
+    onError: (error) => {
+      toast.error("Error al eliminar el barbero: " + error.message);
+    },
+  });
+}
+
 export function useSaveStaffAvailability() {
   const queryClient = useQueryClient();
   const { barbershop } = useUserData();

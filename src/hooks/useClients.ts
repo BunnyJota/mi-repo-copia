@@ -1,6 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserData } from "./useUserData";
+import { toast } from "sonner";
 
 export interface Client {
   id: string;
@@ -63,5 +64,28 @@ export function useClients() {
       return clientsWithStats;
     },
     enabled: !!barbershop?.id,
+  });
+}
+
+export function useDeleteClient() {
+  const queryClient = useQueryClient();
+  const { barbershop } = useUserData();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("clients")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clients", barbershop?.id] });
+      toast.success("Cliente eliminado correctamente");
+    },
+    onError: (error) => {
+      toast.error("Error al eliminar el cliente: " + error.message);
+    },
   });
 }
