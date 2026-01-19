@@ -130,6 +130,12 @@ function getFirebaseMessaging(): Messaging | null {
 
   try {
     if (!firebaseApp) {
+      console.log("Firebase config (env):", {
+        projectId: firebaseConfig.projectId,
+        messagingSenderId: firebaseConfig.messagingSenderId,
+        authDomain: firebaseConfig.authDomain,
+        appId: firebaseConfig.appId,
+      });
       firebaseApp = initializeApp(firebaseConfig);
       console.log("Firebase initialized successfully");
     }
@@ -365,6 +371,19 @@ export function usePushNotifications(barbershopId: string | null) {
         return;
       }
 
+      console.log("Push permission granted:", {
+        permission,
+        userAgent: navigator.userAgent,
+        origin: window.location.origin,
+        protocol: window.location.protocol,
+        isSecureContext: window.isSecureContext,
+      });
+
+      if (!window.isSecureContext) {
+        toast.error("El sitio no está en un contexto seguro (HTTPS). Las notificaciones push requieren HTTPS.");
+        return;
+      }
+
       // Validar configuración de Firebase antes de continuar
       const firebaseValidation = validateFirebaseConfig();
       if (!firebaseValidation.valid) {
@@ -409,6 +428,11 @@ export function usePushNotifications(barbershopId: string | null) {
       try {
         // Verificar si ya existe un Service Worker activo
         const existingRegistrations = await navigator.serviceWorker.getRegistrations();
+        console.log("Service Worker registrations detectadas:", existingRegistrations.map((reg) => ({
+          scope: reg.scope,
+          active: reg.active?.state,
+          scriptURL: reg.active?.scriptURL,
+        })));
         const existingActive = existingRegistrations.find(
           (reg) => reg.active && reg.active.scriptURL.includes("firebase-messaging-sw.js")
         );
@@ -435,6 +459,8 @@ export function usePushNotifications(barbershopId: string | null) {
             installing: registration.installing?.state,
             waiting: registration.waiting?.state,
             active: registration.active?.state,
+            scope: registration.scope,
+            scriptURL: registration.active?.scriptURL,
           });
 
           // Función helper para esperar activación
@@ -572,7 +598,28 @@ export function usePushNotifications(barbershopId: string | null) {
           }
 
           const finalState = activeRegistration.active.state;
-          console.log("Service Worker activo y listo. Estado final:", finalState);
+          const activeScope = activeRegistration.scope;
+          const scopeOrigin = (() => {
+            try {
+              return new URL(activeScope).origin;
+            } catch {
+              return "invalid";
+            }
+          })();
+
+          console.log("Service Worker activo y listo. Estado final:", finalState, {
+            scope: activeScope,
+            scopeOrigin,
+            pageOrigin: window.location.origin,
+            scriptURL: activeRegistration.active?.scriptURL,
+          });
+
+          if (scopeOrigin !== "invalid" && scopeOrigin !== window.location.origin) {
+            console.warn("Service Worker scope no coincide con el origen actual.", {
+              scopeOrigin,
+              pageOrigin: window.location.origin,
+            });
+          }
           
           // Aceptar "activated" o "activating" como válidos
           if (finalState !== "activated" && finalState !== "activating") {
@@ -620,6 +667,23 @@ La VAPID Key no es válida. Por favor verifica:
 5. La clave debe estar en formato base64url (solo letras, números, guiones y guiones bajos)
 
 VAPID Key actual (primeros 30 caracteres): ${vapidKey.substring(0, 30)}...
+            `.trim();
+            toast.error(errorMsg);
+          } else if (
+            tokenError?.name === "AbortError" ||
+            tokenError?.message?.toLowerCase?.().includes("push service error")
+          ) {
+            const errorMsg = `
+No se pudo registrar con el servicio de push. Posibles causas en Brave:
+
+1. Brave Shields bloqueando "push services" o notificaciones
+2. Permisos del sitio bloqueados para notificaciones
+3. Bloqueo por privacidad de Brave
+
+Solución rápida:
+- Desactiva Shields para https://trimly.it.com
+- Permite notificaciones en Site Settings
+- Prueba en Chrome/Edge para confirmar si es específico de Brave
             `.trim();
             toast.error(errorMsg);
           } else {
