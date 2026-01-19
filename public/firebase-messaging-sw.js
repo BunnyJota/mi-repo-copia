@@ -25,15 +25,28 @@ firebase.initializeApp(firebaseConfig);
 // Activar el Service Worker inmediatamente cuando se instala
 self.addEventListener('install', (event) => {
   console.log('[firebase-messaging-sw.js] Service Worker installing...');
-  // Forzar activación inmediata
-  self.skipWaiting();
+  // Forzar activación inmediata sin esperar a que se cierren todas las pestañas
+  event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener('activate', (event) => {
   console.log('[firebase-messaging-sw.js] Service Worker activating...');
   // Tomar control de todas las páginas inmediatamente
   event.waitUntil(
-    clients.claim().then(() => {
+    Promise.all([
+      self.clients.claim(),
+      // Limpiar caches antiguos si los hay
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            if (cacheName !== 'firebase-messaging-sw') {
+              console.log('[firebase-messaging-sw.js] Deleting old cache:', cacheName);
+              return caches.delete(cacheName);
+            }
+          })
+        );
+      })
+    ]).then(() => {
       console.log('[firebase-messaging-sw.js] Service Worker activo y controlando todas las páginas');
     })
   );
@@ -41,7 +54,9 @@ self.addEventListener('activate', (event) => {
 
 // Escuchar mensajes del cliente para activar el Service Worker
 self.addEventListener('message', (event) => {
+  console.log('[firebase-messaging-sw.js] Message received:', event.data);
   if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log('[firebase-messaging-sw.js] Skipping waiting...');
     self.skipWaiting();
   }
 });
