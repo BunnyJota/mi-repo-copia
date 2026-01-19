@@ -52,6 +52,12 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
     return () => window.removeEventListener("open-barbershop-dialog", handler);
   }, []);
 
+  useEffect(() => {
+    const handler = () => setNotificationsDialogOpen(true);
+    window.addEventListener("open-notifications-dialog", handler);
+    return () => window.removeEventListener("open-notifications-dialog", handler);
+  }, []);
+
   const handleSettingClick = (id: string) => {
     switch (id) {
       case "barbershop":
