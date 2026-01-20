@@ -34,6 +34,11 @@ export interface Appointment {
   }[];
 }
 
+export interface UpcomingAgendaResult {
+  items: Appointment[];
+  total: number;
+}
+
 export function useAppointments(dateFilter?: Date, options?: { refetchInterval?: number }) {
   const { barbershop } = useUserData();
 
@@ -141,6 +146,135 @@ export function useAppointments(dateFilter?: Date, options?: { refetchInterval?:
 
 export function useTodayAppointments(options?: { refetchInterval?: number }) {
   return useAppointments(new Date(), options);
+}
+
+export function useUpcomingAgendaAppointments(options?: {
+  refetchInterval?: number;
+  limit?: number;
+}) {
+  const { barbershop, profile, isOwner, isManager, isSuperAdmin } = useUserData();
+  const limit = options?.limit ?? 15;
+
+  return useQuery({
+    queryKey: [
+      "upcoming-agenda-appointments",
+      barbershop?.id,
+      profile?.user_id,
+      isOwner,
+      isManager,
+      isSuperAdmin,
+      limit,
+    ],
+    queryFn: async (): Promise<UpcomingAgendaResult> => {
+      if (!barbershop?.id) return { items: [], total: 0 };
+      if (!profile?.user_id) return { items: [], total: 0 };
+
+      const timezone = barbershop.timezone || "America/New_York";
+      const today = new Date();
+      const todayStr = format(today, "yyyy-MM-dd");
+      const dayStartUtc = formatInTimeZone(
+        new Date(`${todayStr}T00:00:00`),
+        timezone,
+        "yyyy-MM-dd'T'HH:mm:ssXXX",
+      );
+      const dayEndUtc = formatInTimeZone(
+        new Date(`${todayStr}T23:59:59.999`),
+        timezone,
+        "yyyy-MM-dd'T'HH:mm:ssXXX",
+      );
+
+      const activeStatuses = ["pending", "confirmed", "rescheduled", "no_show"] as const;
+
+      let query = supabase
+        .from("appointments")
+        .select(
+          `
+          id,
+          start_at,
+          end_at,
+          status,
+          total_price_estimated,
+          payment_status,
+          notes_client,
+          notes_internal,
+          staff_user_id,
+          client:clients!appointments_client_id_fkey(id, name, email, phone),
+          appointment_services(
+            qty,
+            service:services(id, name, price, duration_min)
+          )
+        `,
+          { count: "exact" },
+        )
+        .eq("barbershop_id", barbershop.id)
+        .gte("start_at", dayStartUtc)
+        .lte("start_at", dayEndUtc)
+        .in("status", activeStatuses)
+        .order("start_at", { ascending: true })
+        .range(0, limit - 1);
+
+      if (!isOwner && !isManager && !isSuperAdmin) {
+        query = query.eq("staff_user_id", profile.user_id);
+      }
+
+      const { data, error, count } = await query;
+
+      if (error) {
+        console.error("Error fetching upcoming agenda appointments:", error);
+        return { items: [], total: 0 };
+      }
+
+      if (!data || data.length === 0) return { items: [], total: count || 0 };
+
+      const staffUserIds = [...new Set(data.map((apt: any) => apt.staff_user_id).filter(Boolean))];
+      let staffMap: Record<string, { id: string; display_name: string; color_tag: string | null }> = {};
+
+      if (staffUserIds.length > 0) {
+        const { data: staffData } = await supabase
+          .from("staff_profiles")
+          .select("id, user_id, display_name, color_tag")
+          .eq("barbershop_id", barbershop.id)
+          .in("user_id", staffUserIds);
+
+        if (staffData) {
+          staffData.forEach((staff: any) => {
+            staffMap[staff.user_id] = {
+              id: staff.id,
+              display_name: staff.display_name,
+              color_tag: staff.color_tag,
+            };
+          });
+        }
+      }
+
+      const items = (data || []).map((apt: any) => ({
+        id: apt.id,
+        start_at: apt.start_at,
+        end_at: apt.end_at,
+        status: apt.status,
+        total_price_estimated: apt.total_price_estimated,
+        payment_status: apt.payment_status,
+        notes_client: apt.notes_client,
+        notes_internal: apt.notes_internal,
+        client: apt.client,
+        staff: apt.staff_user_id ? staffMap[apt.staff_user_id] || null : null,
+        services: (apt.appointment_services || []).map((as: any) => ({
+          id: as.service?.id,
+          name: as.service?.name,
+          price: as.service?.price,
+          duration_min: as.service?.duration_min,
+          qty: as.qty,
+        })),
+      })) as Appointment[];
+
+      return { items, total: count || items.length };
+    },
+    enabled: !!barbershop?.id && !!profile?.user_id,
+    refetchInterval: options?.refetchInterval,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    placeholderData: { items: [], total: 0 },
+  });
 }
 
 export function useAppointmentStats() {
@@ -272,6 +406,31 @@ export function useDeleteAppointment() {
     },
     onError: (error) => {
       toast.error("Error al eliminar la cita: " + error.message);
+    },
+  });
+}
+
+export function useUpdateAppointmentStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: Appointment["status"] }) => {
+      const { error } = await supabase
+        .from("appointments")
+        .update({ status })
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["appointment-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      queryClient.invalidateQueries({ queryKey: ["upcoming-agenda-appointments"] });
+      toast.success("Cita marcada como completada");
+    },
+    onError: (error) => {
+      toast.error("Error al actualizar la cita: " + error.message);
     },
   });
 }
