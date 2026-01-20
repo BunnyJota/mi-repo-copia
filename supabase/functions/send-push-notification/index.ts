@@ -252,9 +252,10 @@ async function sendFCMNotification(
               Urgency: "high",
             },
             notification: {
-              icon: notification.icon || "/favicon.ico",
-              badge: notification.badge || "/favicon.ico",
+              icon: notification.icon || "/logo.png",
+              badge: notification.badge || "/logo.png",
               requireInteraction: true,
+              tag: data?.appointmentId ? `appointment-${data.appointmentId}` : undefined,
             },
             data: data ?? {},
           },
@@ -343,10 +344,19 @@ async function getFCMTokens(
     tokenMap.set(userId, []);
   });
 
+  // Usar Set para deduplicar tokens por fcm_token
+  const seenTokens = new Set<string>();
+  
   tokens?.forEach((token: any) => {
-    const userTokens = tokenMap.get(token.user_id) || [];
-    userTokens.push(token.fcm_token);
-    tokenMap.set(token.user_id, userTokens);
+    // Solo agregar si no hemos visto este token antes
+    if (!seenTokens.has(token.fcm_token)) {
+      seenTokens.add(token.fcm_token);
+      const userTokens = tokenMap.get(token.user_id) || [];
+      userTokens.push(token.fcm_token);
+      tokenMap.set(token.user_id, userTokens);
+    } else {
+      console.log(`Token duplicado ignorado: ${token.fcm_token.substring(0, 20)}...`);
+    }
   });
 
   return tokenMap;
@@ -445,8 +455,7 @@ const handler = async (req: Request): Promise<Response> => {
         barbershop_id,
         staff_user_id,
         client:clients!appointments_client_id_fkey(name, email),
-        barbershop:barbershops!appointments_barbershop_id_fkey(name, brand_accent),
-        staff:staff_profiles!appointments_staff_user_id_fkey(display_name)
+        barbershop:barbershops!appointments_barbershop_id_fkey(name, brand_accent)
       `)
       .eq("id", appointmentId)
       .single();
@@ -570,7 +579,20 @@ const handler = async (req: Request): Promise<Response> => {
     const barbershopName = Array.isArray(appointment.barbershop)
       ? appointment.barbershop[0]?.name
       : appointment.barbershop?.name || "Barbershop";
-    const staffName = appointment.staff?.display_name || "Sin asignar";
+    let staffName = "Sin asignar";
+    if (appointment.staff_user_id) {
+      const { data: staffProfile, error: staffError } = await supabase
+        .from("staff_profiles")
+        .select("display_name")
+        .eq("user_id", appointment.staff_user_id)
+        .maybeSingle();
+
+      if (staffError) {
+        console.warn(`[${requestId}] Error fetching staff profile:`, staffError);
+      } else if (staffProfile?.display_name) {
+        staffName = staffProfile.display_name;
+      }
+    }
 
     let notificationTitle = "";
     let notificationBody = "";
@@ -615,8 +637,8 @@ const handler = async (req: Request): Promise<Response> => {
     const notificationPayload: FCMNotificationPayload = {
       title: notificationTitle,
       body: notificationBody,
-      icon: "/favicon.ico",
-      badge: "/favicon.ico",
+      icon: "/logo.png",
+      badge: "/logo.png",
       data: {
         type,
         appointmentId: appointment.id,

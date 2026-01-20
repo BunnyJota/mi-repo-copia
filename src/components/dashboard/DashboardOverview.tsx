@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { 
+import {
   CalendarCheck, 
   DollarSign, 
   TrendingUp, 
@@ -20,11 +20,11 @@ import {
   XCircle,
   RefreshCw
 } from "lucide-react";
-import { format, isToday, isPast, isFuture } from "date-fns";
+import { format, isPast } from "date-fns";
 import { es } from "date-fns/locale";
-import { useTodayAppointments, useAppointmentStats } from "@/hooks/useAppointments";
+import { useAppointmentStats, useUpcomingAgendaAppointments, useUpdateAppointmentStatus } from "@/hooks/useAppointments";
 import { useUserData } from "@/hooks/useUserData";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { getAppUrl, formatCurrency } from "@/lib/utils";
 import { DashboardTab } from "@/pages/dashboard/Dashboard";
@@ -41,14 +41,16 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
   const { profile, barbershop, loading: userLoading } = useUserData();
   const { lang } = useI18n();
   const queryClient = useQueryClient();
-  const { data: todayAppointments, isLoading: appointmentsLoading } = useTodayAppointments({
+  const { data: upcomingData, isLoading: upcomingLoading } = useUpcomingAgendaAppointments({
     refetchInterval: 15000, // Refetch every 15 seconds for real-time updates
+    limit: 15,
   });
   const { data: stats, isLoading: statsLoading } = useAppointmentStats();
+  const updateAppointmentStatus = useUpdateAppointmentStatus();
   const [copied, setCopied] = useState(false);
 
   // Only show loading if user data is loading, not if there's no barbershop
-  const isLoading = userLoading || (appointmentsLoading && barbershop?.id) || (statsLoading && barbershop?.id);
+  const isLoading = userLoading || (upcomingLoading && barbershop?.id) || (statsLoading && barbershop?.id);
   
   // Build booking URL
   const bookingUrl = barbershop?.slug 
@@ -67,19 +69,9 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
     }
   };
 
-  // Get upcoming appointments (not completed/canceled, sorted by time)
-  const upcomingAppointments = useMemo(() => {
-    const now = new Date();
-    return (todayAppointments || [])
-      .filter((apt) => {
-        const aptDate = new Date(apt.start_at);
-        return apt.status !== "completed" && 
-               apt.status !== "canceled" && 
-               (isFuture(aptDate) || isToday(aptDate));
-      })
-      .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())
-      .slice(0, 5);
-  }, [todayAppointments]);
+  const upcomingAppointments = upcomingData?.items || [];
+  const upcomingTotal = upcomingData?.total || 0;
+  const remainingCount = Math.max(upcomingTotal - upcomingAppointments.length, 0);
 
   const displayName = profile?.display_name?.split(" ")[0] || "Usuario";
   
@@ -106,6 +98,7 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
           queryClient.invalidateQueries({ queryKey: ["appointments"] });
           queryClient.invalidateQueries({ queryKey: ["appointment-stats"] });
           queryClient.invalidateQueries({ queryKey: ["reports"] });
+          queryClient.invalidateQueries({ queryKey: ["upcoming-agenda-appointments"] });
         }
       )
       .subscribe();
@@ -114,6 +107,13 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
       supabase.removeChannel(channel);
     };
   }, [barbershop?.id, queryClient]);
+
+  const handleCompleteAppointment = async (appointmentId: string) => {
+    if (updateAppointmentStatus.isPending) return;
+    const confirm = window.confirm("¿Marcar esta cita como completada?");
+    if (!confirm) return;
+    await updateAppointmentStatus.mutateAsync({ id: appointmentId, status: "completed" });
+  };
 
   return (
     <div className="space-y-6">
@@ -344,6 +344,12 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
             <p className="text-sm text-muted-foreground mt-1">
               Se actualiza automáticamente cada 15 segundos
             </p>
+            {upcomingTotal > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Mostrando {upcomingAppointments.length} de {upcomingTotal}
+                {remainingCount > 0 ? ` • ${remainingCount} restantes` : ""}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -352,6 +358,7 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
               onClick={() => {
                 queryClient.invalidateQueries({ queryKey: ["appointments"] });
                 queryClient.invalidateQueries({ queryKey: ["appointment-stats"] });
+                queryClient.invalidateQueries({ queryKey: ["upcoming-agenda-appointments"] });
                 toast.success("Citas actualizadas");
               }}
               className="gap-2"
@@ -370,7 +377,7 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {userLoading || (appointmentsLoading && barbershop?.id) ? (
+          {userLoading || (upcomingLoading && barbershop?.id) ? (
             <div className="divide-y">
               {[1, 2, 3, 4, 5].map((i) => (
                 <div key={i} className="flex items-center gap-4 px-6 py-4">
@@ -397,25 +404,25 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
             </div>
           ) : (
             <div className="divide-y">
-              {upcomingAppointments.map((apt) => {
+              {upcomingAppointments.map((apt, index) => {
                 const aptDate = new Date(apt.start_at);
-                const isPastAppointment = isPast(aptDate) && !isToday(aptDate);
-                const isNow = isToday(aptDate) && Math.abs(new Date().getTime() - aptDate.getTime()) < 30 * 60 * 1000; // Within 30 minutes
-                
+                const isPastAppointment = isPast(aptDate);
+                const isNext = index === 0;
+
                 return (
                   <div
                     key={apt.id}
                     className={`
                       flex items-center gap-4 px-6 py-4 transition-colors
-                      ${isNow ? "bg-primary/5 border-l-4 border-l-primary" : "hover:bg-muted/50"}
+                      ${isNext ? "bg-primary/5 border-l-4 border-l-primary" : "hover:bg-muted/50"}
                       ${isPastAppointment ? "opacity-60" : ""}
                     `}
                   >
                     <div className={`
                       flex h-10 w-10 items-center justify-center rounded-full
-                      ${isNow ? "bg-primary/20" : "bg-muted"}
+                      ${isNext ? "bg-primary/20" : "bg-muted"}
                     `}>
-                      {isNow ? (
+                      {isNext ? (
                         <Clock className="h-5 w-5 text-primary animate-pulse" />
                       ) : (
                         <User className="h-5 w-5 text-muted-foreground" />
@@ -426,9 +433,14 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
                         <p className="font-medium text-foreground truncate">
                           {apt.client.name}
                         </p>
-                        {isNow && (
+                        {isNext && (
                           <Badge variant="confirmed" className="text-xs">
-                            Ahora
+                            Siguiente
+                          </Badge>
+                        )}
+                        {isPastAppointment && (
+                          <Badge variant="secondary" className="text-xs">
+                            Atrasada
                           </Badge>
                         )}
                       </div>
@@ -452,8 +464,8 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
                       </div>
                       <Badge
                         variant={
-                          apt.status === "confirmed" 
-                            ? "confirmed" 
+                          apt.status === "confirmed"
+                            ? "confirmed"
                             : apt.status === "pending"
                             ? "pending"
                             : "pending"
@@ -462,6 +474,15 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
                       >
                         {apt.status === "confirmed" ? "Confirmada" : "Pendiente"}
                       </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-1 text-xs"
+                        onClick={() => handleCompleteAppointment(apt.id)}
+                        disabled={updateAppointmentStatus.isPending}
+                      >
+                        Completar
+                      </Button>
                     </div>
                   </div>
                 );

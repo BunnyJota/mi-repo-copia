@@ -287,10 +287,10 @@ export function usePushNotifications(barbershopId: string | null) {
 
       console.log("Registrando token FCM:", { deviceType, deviceName, tokenLength: token.length });
 
-      // Verificar si el token ya existe
+      // Verificar si el token ya existe (por fcm_token)
       const { data: existingToken, error: lookupError } = await supabase
         .from("push_notification_tokens")
-        .select("id")
+        .select("id, user_id")
         .eq("fcm_token", token)
         .maybeSingle();
 
@@ -301,22 +301,48 @@ export function usePushNotifications(barbershopId: string | null) {
       }
 
       if (existingToken) {
-        console.log("Token existente encontrado, actualizando...");
-        // Actualizar last_used_at
-        const { error } = await supabase
-          .from("push_notification_tokens")
-          .update({
-            last_used_at: new Date().toISOString(),
-            barbershop_id: barbershopId,
-          })
-          .eq("id", existingToken.id);
+        // Si el token existe pero es de otro usuario, eliminarlo primero (token reutilizado)
+        if (existingToken.user_id !== user.id) {
+          console.log("Token existe para otro usuario, eliminando y recreando...");
+          await supabase
+            .from("push_notification_tokens")
+            .delete()
+            .eq("id", existingToken.id);
+        } else {
+          console.log("Token existente encontrado, actualizando...");
+          // Actualizar last_used_at
+          const { error } = await supabase
+            .from("push_notification_tokens")
+            .update({
+              last_used_at: new Date().toISOString(),
+              barbershop_id: barbershopId,
+            })
+            .eq("id", existingToken.id);
 
-        if (error) {
-          console.error("Error actualizando token existente:", error);
-          throw error;
+          if (error) {
+            console.error("Error actualizando token existente:", error);
+            throw error;
+          }
+          console.log("Token actualizado exitosamente");
+          return existingToken.id;
         }
-        console.log("Token actualizado exitosamente");
-        return existingToken.id;
+      }
+
+      // Verificar si este usuario ya tiene tokens duplicados para este dispositivo
+      // y eliminarlos antes de crear uno nuevo
+      const { data: duplicateTokens } = await supabase
+        .from("push_notification_tokens")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("device_type", deviceType)
+        .neq("fcm_token", token); // Excluir el token actual
+
+      if (duplicateTokens && duplicateTokens.length > 0) {
+        console.log(`Eliminando ${duplicateTokens.length} tokens duplicados del mismo dispositivo...`);
+        await supabase
+          .from("push_notification_tokens")
+          .delete()
+          .in("id", duplicateTokens.map(t => t.id));
       }
 
       // Crear nuevo token
@@ -710,11 +736,15 @@ Solución rápida:
           // Mostrar notificación manualmente si el usuario está en primer plano
           if (payload.notification) {
             try {
+              const tagValue = payload.data?.appointmentId 
+                ? `appointment-${payload.data.appointmentId}` 
+                : undefined;
+              
               new Notification(payload.notification.title || "Nueva notificación", {
                 body: payload.notification.body,
-                icon: payload.notification.icon || "/favicon.ico",
-                badge: "/favicon.ico",
-                tag: payload.data?.appointmentId,
+                icon: payload.notification.icon || "/logo.png",
+                badge: "/logo.png",
+                tag: tagValue,
                 data: payload.data,
               });
             } catch (notifError) {

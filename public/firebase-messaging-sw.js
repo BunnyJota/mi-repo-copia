@@ -69,11 +69,16 @@ messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
   
   const notificationTitle = payload.notification?.title || 'Nueva notificación';
+  // Usar tag consistente con el que envía FCM (appointment-{id})
+  const tagValue = payload.data?.appointmentId 
+    ? `appointment-${payload.data.appointmentId}` 
+    : undefined;
+  
   const notificationOptions = {
     body: payload.notification?.body || '',
-    icon: payload.notification?.icon || '/favicon.ico',
-    badge: '/favicon.ico',
-    tag: payload.data?.appointmentId,
+    icon: payload.notification?.icon || '/logo.png',
+    badge: '/logo.png',
+    tag: tagValue,
     data: payload.data,
     requireInteraction: true,
   };
