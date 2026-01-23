@@ -53,7 +53,11 @@ export function DashboardHeader({ onSettingsClick, onNotificationsClick }: Dashb
   };
 
   const handleProfileClick = () => {
-    sessionStorage.setItem("open-barbershop-dialog", "1");
+    try {
+      sessionStorage.setItem("open-barbershop-dialog", "1");
+    } catch (error) {
+      console.warn("Session storage unavailable for profile dialog", error);
+    }
     handleSettingsClick();
     requestAnimationFrame(() => {
       window.dispatchEvent(new CustomEvent("open-barbershop-dialog"));
