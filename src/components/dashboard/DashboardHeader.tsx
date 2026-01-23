@@ -52,6 +52,14 @@ export function DashboardHeader({ onSettingsClick, onNotificationsClick }: Dashb
     }
   };
 
+  const handleProfileClick = () => {
+    sessionStorage.setItem("open-barbershop-dialog", "1");
+    handleSettingsClick();
+    requestAnimationFrame(() => {
+      window.dispatchEvent(new CustomEvent("open-barbershop-dialog"));
+    });
+  };
+
   const handleNotificationsClick = () => {
     if (onNotificationsClick) {
       onNotificationsClick();
@@ -269,12 +277,20 @@ export function DashboardHeader({ onSettingsClick, onNotificationsClick }: Dashb
               <p className="text-xs text-muted-foreground">{t("dashboard.user.roleOwner" as any)}</p>
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                handleProfileClick();
+              }}
+            >
               <User className="mr-2 h-4 w-4" />
               {t("dashboard.menu.profile" as any)}
             </DropdownMenuItem>
             <DropdownMenuItem
-              onSelect={() => {
+              onSelect={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
                 handleSettingsClick();
               }}
             >

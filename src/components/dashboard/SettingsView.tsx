@@ -55,6 +55,14 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
   }, []);
 
   useEffect(() => {
+    const pendingOpen = sessionStorage.getItem("open-barbershop-dialog");
+    if (pendingOpen) {
+      sessionStorage.removeItem("open-barbershop-dialog");
+      setBarbershopDialogOpen(true);
+    }
+  }, []);
+
+  useEffect(() => {
     const handler = () => setNotificationsDialogOpen(true);
     window.addEventListener("open-notifications-dialog", handler);
     return () => window.removeEventListener("open-notifications-dialog", handler);
