@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import type { MouseEvent } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -14,6 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserData } from "@/hooks/useUserData";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useI18n } from "@/i18n";
 
 interface NotificationItem {
   id: string;
@@ -32,6 +34,7 @@ interface DashboardHeaderProps {
 export function DashboardHeader({ onSettingsClick, onNotificationsClick }: DashboardHeaderProps) {
   const { signOut, user } = useAuth();
   const { profile, barbershop, subscription, trialDaysRemaining, subscriptionAccess, loading } = useUserData();
+  const { t, lang } = useI18n();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -97,9 +100,35 @@ export function DashboardHeader({ onSettingsClick, onNotificationsClick }: Dashb
     }
   };
 
+  const clearNotifications = async () => {
+    if (!user?.id) return;
+    try {
+      const { error } = await (supabase as any)
+        .from("notifications")
+        .delete()
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("Error clearing notifications:", error);
+        return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["notifications", user?.id] });
+    } catch (err) {
+      console.error("Error clearing notifications:", err);
+    }
+  };
+
+  const handleClearNotifications = (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    clearNotifications();
+  };
+
   const formatTimestamp = (dateString: string) => {
     try {
-      return new Date(dateString).toLocaleString("es-ES", {
+      const locale = lang === "en" ? "en-US" : "es-ES";
+      return new Date(dateString).toLocaleString(locale, {
         hour: "2-digit",
         minute: "2-digit",
         day: "2-digit",
@@ -126,17 +155,18 @@ export function DashboardHeader({ onSettingsClick, onNotificationsClick }: Dashb
     if (subscription.status === "trial" && trialDaysRemaining !== null) {
       return (
         <Badge variant="trial" className="text-xs">
-          Trial: {trialDaysRemaining} días
+          {t("dashboard.subscription.trialPrefix" as any)} {trialDaysRemaining}{" "}
+          {t("dashboard.subscription.days" as any)}
         </Badge>
       );
     }
     
     if (subscription.status === "active") {
-      return <Badge variant="active" className="text-xs">Activo</Badge>;
+      return <Badge variant="active" className="text-xs">{t("dashboard.subscription.active" as any)}</Badge>;
     }
     
     if (subscriptionAccess.isPaymentRequired) {
-      return <Badge variant="pastdue" className="text-xs">Pago requerido</Badge>;
+      return <Badge variant="pastdue" className="text-xs">{t("dashboard.subscription.paymentRequired" as any)}</Badge>;
     }
     
     return null;
@@ -147,7 +177,7 @@ export function DashboardHeader({ onSettingsClick, onNotificationsClick }: Dashb
       <div className="flex items-center gap-3">
         <div>
           <h1 className="font-display text-base font-semibold sm:text-lg">
-            {loading ? "Cargando..." : barbershop?.name || "Mi barbería"}
+            {loading ? t("dashboard.loading" as any) : barbershop?.name || t("dashboard.myBarbershop" as any)}
           </h1>
         </div>
         {getSubscriptionBadge()}
@@ -165,16 +195,29 @@ export function DashboardHeader({ onSettingsClick, onNotificationsClick }: Dashb
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
-            <div className="px-2 py-1.5">
-              <p className="text-sm font-medium">Notificaciones</p>
-              <p className="text-xs text-muted-foreground">
-                {unreadCount > 0 ? `${unreadCount} sin leer` : "Sin notificaciones nuevas"}
-              </p>
+            <div className="flex items-start justify-between gap-3 px-2 py-1.5">
+              <div>
+                <p className="text-sm font-medium">{t("dashboard.notifications.title" as any)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {unreadCount > 0
+                    ? t("dashboard.notifications.unreadCount" as any).replace("{count}", String(unreadCount))
+                    : t("dashboard.notifications.noneNew" as any)}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                disabled={notifications.length === 0}
+                onClick={handleClearNotifications}
+              >
+                {t("dashboard.notifications.clear" as any)}
+              </Button>
             </div>
             <DropdownMenuSeparator />
             {notifications.length === 0 ? (
               <div className="px-2 py-3 text-sm text-muted-foreground">
-                No hay notificaciones todavía.
+                {t("dashboard.notifications.empty" as any)}
               </div>
             ) : (
               notifications.map((notification) => (
@@ -204,7 +247,7 @@ export function DashboardHeader({ onSettingsClick, onNotificationsClick }: Dashb
               }}
             >
               <Settings className="mr-2 h-4 w-4" />
-              Configurar notificaciones
+              {t("dashboard.notifications.configure" as any)}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -222,13 +265,13 @@ export function DashboardHeader({ onSettingsClick, onNotificationsClick }: Dashb
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
             <div className="px-2 py-1.5">
-              <p className="text-sm font-medium">{profile?.display_name || "Usuario"}</p>
-              <p className="text-xs text-muted-foreground">Owner</p>
+              <p className="text-sm font-medium">{profile?.display_name || t("dashboard.user.fallback" as any)}</p>
+              <p className="text-xs text-muted-foreground">{t("dashboard.user.roleOwner" as any)}</p>
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem>
               <User className="mr-2 h-4 w-4" />
-              Mi perfil
+              {t("dashboard.menu.profile" as any)}
             </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={() => {
@@ -236,12 +279,12 @@ export function DashboardHeader({ onSettingsClick, onNotificationsClick }: Dashb
               }}
             >
               <Settings className="mr-2 h-4 w-4" />
-              Configuración
+              {t("dashboard.menu.settings" as any)}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
               <LogOut className="mr-2 h-4 w-4" />
-              Cerrar sesión
+              {t("dashboard.menu.signOut" as any)}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

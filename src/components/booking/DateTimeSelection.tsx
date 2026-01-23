@@ -6,10 +6,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight, ArrowLeft, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, addDays, isSameDay } from "date-fns";
-import { es } from "date-fns/locale";
+import { es, enUS } from "date-fns/locale";
 import type { SelectedDateTime, SelectedBarber } from "@/pages/booking/PublicBooking";
 import type { PublicBarbershop, PublicStaff } from "@/hooks/usePublicBooking";
 import { useAvailableSlots } from "@/hooks/usePublicBooking";
+import { useI18n } from "@/i18n";
 
 interface DateTimeSelectionProps {
   barbershop: PublicBarbershop;
@@ -32,6 +33,7 @@ export function DateTimeSelection({
   onNext,
   onBack,
 }: DateTimeSelectionProps) {
+  const { t, lang } = useI18n();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     selectedDateTime?.date || new Date()
   );
@@ -78,10 +80,10 @@ export function DateTimeSelection({
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl font-bold text-foreground">
-          ¿Cuándo quieres venir?
+          {t("booking.datetime.title" as any)}
         </h1>
         <p className="mt-1 text-muted-foreground">
-          Duración total: {totalDuration} minutos
+          {t("booking.datetime.duration" as any).replace("{minutes}", String(totalDuration))}
         </p>
       </div>
 
@@ -95,7 +97,7 @@ export function DateTimeSelection({
             disabled={(date) =>
               date < new Date() || date > maxDate
             }
-            locale={es}
+            locale={lang === "en" ? enUS : es}
             className="mx-auto"
           />
         </CardContent>
@@ -106,8 +108,12 @@ export function DateTimeSelection({
         <div>
           <h2 className="mb-3 flex items-center gap-2 font-display font-semibold text-foreground">
             <Clock className="h-4 w-4" />
-            Horarios disponibles para{" "}
-            {format(selectedDate, "d 'de' MMMM", { locale: es })}
+            {t("booking.datetime.availableFor" as any).replace(
+              "{date}",
+              format(selectedDate, lang === "en" ? "MMMM d" : "d 'de' MMMM", {
+                locale: lang === "en" ? enUS : es,
+              }),
+            )}
           </h2>
           {slotsLoading ? (
             <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
@@ -135,8 +141,8 @@ export function DateTimeSelection({
           ) : (
             <p className="rounded-lg bg-muted p-4 text-center text-sm text-muted-foreground">
               {staff.length === 0
-                ? "No hay barberos activos. Activa al menos uno para ofrecer horarios."
-                : "No hay horarios disponibles para esta fecha. Prueba otro día u otro barbero."}
+                ? t("booking.datetime.noStaff" as any)
+                : t("booking.datetime.noSlots" as any)}
             </p>
           )}
         </div>
@@ -146,7 +152,7 @@ export function DateTimeSelection({
       <div className="flex gap-3 pt-4">
         <Button variant="outline" size="lg" onClick={onBack} className="flex-1">
           <ArrowLeft className="mr-2 h-5 w-5" />
-          Atrás
+          {t("common.back" as any)}
         </Button>
         <Button
           variant="hero"
@@ -155,7 +161,7 @@ export function DateTimeSelection({
           disabled={!selectedDateTime?.time}
           className="flex-1"
         >
-          Continuar
+          {t("common.continue" as any)}
           <ArrowRight className="ml-2 h-5 w-5" />
         </Button>
       </div>

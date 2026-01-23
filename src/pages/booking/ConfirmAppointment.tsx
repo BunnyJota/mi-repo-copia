@@ -7,11 +7,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, XCircle, AlertCircle, Clock, Loader2 } from "lucide-react";
 import { Logo } from "@/components/layout/Logo";
 import { supabase } from "@/integrations/supabase/client";
-import { useI18n } from "@/i18n";
+import { LanguageToggle, useI18n } from "@/i18n";
 
 type ConfirmStatus = "loading" | "success" | "canceled" | "error" | "expired" | "already_processed";
 
 const ConfirmAppointment = () => {
+  const { t } = useI18n();
   const { token } = useParams<{ token: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -25,7 +26,7 @@ const ConfirmAppointment = () => {
     const processConfirmation = async () => {
       if (!token) {
         setStatus("error");
-        setMessage("Token no proporcionado");
+        setMessage(t("booking.confirm.errorTokenMissing" as any));
         return;
       }
 
@@ -37,7 +38,7 @@ const ConfirmAppointment = () => {
         if (error) {
           console.error("Error:", error);
           setStatus("error");
-          setMessage("Error al procesar la solicitud");
+          setMessage(t("booking.confirm.errorProcess" as any));
           return;
         }
 
@@ -65,7 +66,7 @@ const ConfirmAppointment = () => {
       } catch (err) {
         console.error("Error processing confirmation:", err);
         setStatus("error");
-        setMessage("Error de conexión");
+        setMessage(t("booking.confirm.errorConnection" as any));
       }
     };
 
@@ -79,9 +80,11 @@ const ConfirmAppointment = () => {
           <div className="flex flex-col items-center space-y-4">
             <Loader2 className="h-16 w-16 animate-spin text-primary" />
             <h2 className="font-display text-xl font-semibold">
-              {action === "confirm" ? "Agendando tu cita..." : "Cancelando tu cita..."}
+              {action === "confirm"
+                ? t("booking.confirm.loadingConfirm" as any)
+                : t("booking.confirm.loadingCancel" as any)}
             </h2>
-            <p className="text-muted-foreground">Por favor espera un momento</p>
+            <p className="text-muted-foreground">{t("booking.confirm.loadingSubtitle" as any)}</p>
           </div>
         );
 
@@ -96,10 +99,10 @@ const ConfirmAppointment = () => {
               <CheckCircle className="h-10 w-10 text-success" />
             </div>
             <h2 className="font-display text-2xl font-bold text-success">
-              Cita agendada
+              {t("booking.confirm.successTitle" as any)}
             </h2>
             <p className="text-center text-muted-foreground">
-              Tu cita ha sido agendada exitosamente. Te esperamos en la fecha y hora indicadas.
+              {t("booking.confirm.successSubtitle" as any)}
             </p>
           </motion.div>
         );
@@ -115,10 +118,10 @@ const ConfirmAppointment = () => {
               <XCircle className="h-10 w-10 text-destructive" />
             </div>
             <h2 className="font-display text-2xl font-bold text-destructive">
-              Cita Cancelada
+              {t("booking.confirm.canceledTitle" as any)}
             </h2>
             <p className="text-center text-muted-foreground">
-              Tu cita ha sido cancelada. Puedes reservar una nueva cita cuando lo desees.
+              {t("booking.confirm.canceledSubtitle" as any)}
             </p>
           </motion.div>
         );
@@ -134,10 +137,10 @@ const ConfirmAppointment = () => {
               <Clock className="h-10 w-10 text-warning" />
             </div>
             <h2 className="font-display text-2xl font-bold text-warning">
-              Enlace Expirado
+              {t("booking.confirm.expiredTitle" as any)}
             </h2>
             <p className="text-center text-muted-foreground">
-              Este enlace ha expirado. Por favor contacta a la barbería para gestionar tu cita.
+              {t("booking.confirm.expiredSubtitle" as any)}
             </p>
           </motion.div>
         );
@@ -153,10 +156,16 @@ const ConfirmAppointment = () => {
               <AlertCircle className="h-10 w-10 text-muted-foreground" />
             </div>
             <h2 className="font-display text-2xl font-bold text-muted-foreground">
-              Ya Procesado
+              {t("booking.confirm.alreadyProcessedTitle" as any)}
             </h2>
             <p className="text-center text-muted-foreground">
-              {message || `Esta cita ya fue ${existingStatus === "confirmed" ? "confirmada" : "procesada"} anteriormente.`}
+              {message ||
+                t("booking.confirm.alreadyProcessedSubtitle" as any).replace(
+                  "{status}",
+                  existingStatus === "confirmed"
+                    ? t("booking.confirm.statusConfirmed" as any)
+                    : t("booking.confirm.statusProcessed" as any),
+                )}
             </p>
           </motion.div>
         );
@@ -173,10 +182,10 @@ const ConfirmAppointment = () => {
               <AlertCircle className="h-10 w-10 text-destructive" />
             </div>
             <h2 className="font-display text-2xl font-bold text-destructive">
-              Error
+              {t("booking.confirm.errorTitle" as any)}
             </h2>
             <p className="text-center text-muted-foreground">
-              {message || "No pudimos procesar tu solicitud. Por favor intenta de nuevo."}
+              {message || t("booking.confirm.errorSubtitle" as any)}
             </p>
           </motion.div>
         );
@@ -187,8 +196,9 @@ const ConfirmAppointment = () => {
     <div className="flex min-h-screen flex-col bg-surface-sunken">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur-sm">
-        <div className="container flex h-16 items-center justify-center">
+        <div className="container flex h-16 items-center justify-between">
           <Logo />
+          <LanguageToggle />
         </div>
       </header>
 
@@ -205,7 +215,7 @@ const ConfirmAppointment = () => {
                   variant="default"
                   onClick={() => navigate("/")}
                 >
-                  Ir al inicio
+                  {t("booking.confirm.backHome" as any)}
                 </Button>
               </div>
             )}

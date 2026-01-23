@@ -15,15 +15,28 @@ import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useAppointments } from "@/hooks/useAppointments";
 import { useAvailabilityRules, getHoursFromRules } from "@/hooks/useAvailabilityRules";
+import { useUserData } from "@/hooks/useUserData";
+import { useI18n } from "@/i18n";
+import { toast } from "sonner";
 
 export function AgendaView() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const { data: appointments, isLoading: appointmentsLoading } = useAppointments(selectedDate);
   const { data: availabilityRules, isLoading: rulesLoading } = useAvailabilityRules();
+  const { barbershop } = useUserData();
+  const { t } = useI18n();
 
   const goToPrevDay = () => setSelectedDate(subDays(selectedDate, 1));
   const goToNextDay = () => setSelectedDate(addDays(selectedDate, 1));
   const goToToday = () => setSelectedDate(new Date());
+
+  const handleAddAppointment = () => {
+    if (barbershop?.slug) {
+      window.open(`/b/${barbershop.slug}`, "_blank", "noopener,noreferrer");
+      return;
+    }
+    toast.error(t("agenda.addAppointmentMissingBarbershop" as any));
+  };
 
   const isToday = isSameDay(selectedDate, new Date());
   const isLoading = appointmentsLoading || rulesLoading;
@@ -148,7 +161,10 @@ export function AgendaView() {
                           ))}
                         </div>
                       ) : (
-                        <button className="flex h-full w-full items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary">
+                        <button
+                          className="flex h-full w-full items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary"
+                          onClick={handleAddAppointment}
+                        >
                           <Plus className="mr-1 h-4 w-4" />
                           Añadir cita
                         </button>
@@ -167,6 +183,7 @@ export function AgendaView() {
         variant="hero"
         size="icon-lg"
         className="fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-lg md:hidden"
+        onClick={handleAddAppointment}
       >
         <Plus className="h-6 w-6" />
       </Button>

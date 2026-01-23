@@ -14,6 +14,7 @@ import {
 import { Link } from "react-router-dom";
 import { useUserData } from "@/hooks/useUserData";
 import type { DashboardTab } from "@/pages/dashboard/Dashboard";
+import { useI18n } from "@/i18n";
 import {
   Sidebar,
   SidebarContent,
@@ -34,24 +35,25 @@ interface DashboardSidebarProps {
 }
 
 const mainNavItems = [
-  { id: "overview" as const, label: "Inicio", icon: LayoutDashboard },
-  { id: "agenda" as const, label: "Agenda", icon: Calendar },
-  { id: "appointments" as const, label: "Citas", icon: ClipboardList },
-  { id: "clients" as const, label: "Clientes", icon: Users },
+  { id: "overview" as const, labelKey: "menu.overview", icon: LayoutDashboard },
+  { id: "agenda" as const, labelKey: "menu.agenda", icon: Calendar },
+  { id: "appointments" as const, labelKey: "menu.appointments", icon: ClipboardList },
+  { id: "clients" as const, labelKey: "menu.clients", icon: Users },
 ];
 
 const managementNavItems = [
-  { id: "services" as const, label: "Servicios", icon: Scissors },
-  { id: "staff" as const, label: "Equipo", icon: UserCog },
-  { id: "reports" as const, label: "Reportes", icon: BarChart3 },
+  { id: "services" as const, labelKey: "menu.services", icon: Scissors },
+  { id: "staff" as const, labelKey: "menu.staff", icon: UserCog },
+  { id: "reports" as const, labelKey: "menu.reports", icon: BarChart3 },
 ];
 
 const settingsNavItems = [
-  { id: "settings" as const, label: "Configuración", icon: Settings },
+  { id: "settings" as const, labelKey: "menu.settings", icon: Settings },
 ];
 
 export function DashboardSidebar({ activeTab, onTabChange }: DashboardSidebarProps) {
   const { barbershop } = useUserData();
+  const { t } = useI18n();
 
   return (
     <Sidebar collapsible="icon">
@@ -65,7 +67,7 @@ export function DashboardSidebar({ activeTab, onTabChange }: DashboardSidebarPro
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Principal</SidebarGroupLabel>
+          <SidebarGroupLabel>{t("menu.group.main" as any)}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainNavItems.map((item) => (
@@ -73,10 +75,10 @@ export function DashboardSidebar({ activeTab, onTabChange }: DashboardSidebarPro
                   <SidebarMenuButton
                     onClick={() => onTabChange(item.id)}
                     isActive={activeTab === item.id}
-                    tooltip={item.label}
+                    tooltip={t(item.labelKey as any)}
                   >
                     <item.icon className="h-4 w-4" />
-                    <span>{item.label}</span>
+                    <span>{t(item.labelKey as any)}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -85,7 +87,7 @@ export function DashboardSidebar({ activeTab, onTabChange }: DashboardSidebarPro
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Gestión</SidebarGroupLabel>
+          <SidebarGroupLabel>{t("menu.group.management" as any)}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {managementNavItems.map((item) => (
@@ -93,10 +95,10 @@ export function DashboardSidebar({ activeTab, onTabChange }: DashboardSidebarPro
                   <SidebarMenuButton
                     onClick={() => onTabChange(item.id)}
                     isActive={activeTab === item.id}
-                    tooltip={item.label}
+                    tooltip={t(item.labelKey as any)}
                   >
                     <item.icon className="h-4 w-4" />
-                    <span>{item.label}</span>
+                    <span>{t(item.labelKey as any)}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -105,7 +107,7 @@ export function DashboardSidebar({ activeTab, onTabChange }: DashboardSidebarPro
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Sistema</SidebarGroupLabel>
+          <SidebarGroupLabel>{t("menu.group.system" as any)}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {settingsNavItems.map((item) => (
@@ -113,10 +115,10 @@ export function DashboardSidebar({ activeTab, onTabChange }: DashboardSidebarPro
                   <SidebarMenuButton
                     onClick={() => onTabChange(item.id)}
                     isActive={activeTab === item.id}
-                    tooltip={item.label}
+                    tooltip={t(item.labelKey as any)}
                   >
                     <item.icon className="h-4 w-4" />
-                    <span>{item.label}</span>
+                    <span>{t(item.labelKey as any)}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -129,7 +131,7 @@ export function DashboardSidebar({ activeTab, onTabChange }: DashboardSidebarPro
         {barbershop?.slug && (
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Ver página pública">
+              <SidebarMenuButton asChild tooltip={t("menu.publicPage" as any)}>
                 <Link
                   to={`/b/${barbershop.slug}`}
                   target="_blank"
@@ -137,7 +139,7 @@ export function DashboardSidebar({ activeTab, onTabChange }: DashboardSidebarPro
                   className="text-muted-foreground"
                 >
                   <ExternalLink className="h-4 w-4" />
-                  <span>Ver página pública</span>
+                  <span>{t("menu.publicPage" as any)}</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

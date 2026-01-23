@@ -14,6 +14,12 @@ export function Footer() {
           
           <div className="flex flex-wrap items-center justify-center gap-6">
             <a
+              href="#getting-started"
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {t("footer.gettingStarted" as any)}
+            </a>
+            <a
               href="#features"
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
@@ -50,7 +56,7 @@ export function Footer() {
               className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               <Instagram className="h-4 w-4" />
-              Síguenos en Instagram
+              {t("footer.instagram" as any)}
             </a>
           </div>
         </div>

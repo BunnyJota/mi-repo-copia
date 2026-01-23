@@ -1,17 +1,19 @@
 import { cn } from "@/lib/utils";
-
-const steps = [
-  { number: 1, label: "Servicios" },
-  { number: 2, label: "Barbero" },
-  { number: 3, label: "Fecha" },
-  { number: 4, label: "Datos" },
-];
+import { useI18n } from "@/i18n";
 
 interface BookingProgressProps {
   currentStep: number;
 }
 
 export function BookingProgress({ currentStep }: BookingProgressProps) {
+  const { t } = useI18n();
+  const steps = [
+    { number: 1, label: t("booking.progress.services" as any) },
+    { number: 2, label: t("booking.progress.barber" as any) },
+    { number: 3, label: t("booking.progress.date" as any) },
+    { number: 4, label: t("booking.progress.details" as any) },
+  ];
+
   return (
     <div className="mb-8">
       <div className="flex items-center justify-between">

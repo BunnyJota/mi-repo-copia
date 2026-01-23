@@ -24,7 +24,7 @@ export function ServicesView() {
   const { data: services, isLoading } = useServices();
   const deleteService = useDeleteService();
   const { barbershop, isOwner } = useUserData();
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [deletingService, setDeletingService] = useState<Service | null>(null);
@@ -57,15 +57,15 @@ export function ServicesView() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold text-foreground">
-            Servicios
+            {t("services.title" as any)}
           </h1>
           <p className="text-muted-foreground">
-            Gestiona los servicios que ofreces
+            {t("services.subtitle" as any)}
           </p>
         </div>
         <Button onClick={() => setIsFormOpen(true)} className="gap-2">
           <Plus className="h-4 w-4" />
-          Nuevo
+          {t("services.new" as any)}
         </Button>
       </div>
 
@@ -92,14 +92,14 @@ export function ServicesView() {
               <DollarSign className="h-8 w-8 text-muted-foreground" />
             </div>
             <h3 className="mt-4 font-display font-semibold">
-              Sin servicios aún
+              {t("services.emptyTitle" as any)}
             </h3>
             <p className="mt-1 text-center text-sm text-muted-foreground">
-              Crea tu primer servicio para empezar a recibir reservas
+              {t("services.emptySubtitle" as any)}
             </p>
             <Button onClick={() => setIsFormOpen(true)} className="mt-4 gap-2">
               <Plus className="h-4 w-4" />
-              Crear servicio
+              {t("services.create" as any)}
             </Button>
           </CardContent>
         </Card>
@@ -125,7 +125,7 @@ export function ServicesView() {
           {inactiveServices.length > 0 && (
             <div className="space-y-3">
               <p className="text-sm font-medium text-muted-foreground">
-                Inactivos
+                {t("services.inactive" as any)}
               </p>
               {inactiveServices.map((service) => (
                 <ServiceCard
@@ -154,19 +154,21 @@ export function ServicesView() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar servicio?</AlertDialogTitle>
+            <AlertDialogTitle>{t("services.deleteDialog.title" as any)}</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. El servicio "
-              {deletingService?.name}" será eliminado permanentemente.
+              {t("services.deleteDialog.description" as any).replace(
+                "{name}",
+                deletingService?.name || "",
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("services.actions.cancel" as any)}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Eliminar
+              {t("services.actions.delete" as any)}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -188,6 +190,7 @@ function ServiceCard({
   formatPrice: (price: number) => string;
   canDelete: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <Card className={!service.is_active ? "opacity-60" : undefined}>
       <CardContent className="p-4">
@@ -199,7 +202,7 @@ function ServiceCard({
               </h3>
               {!service.is_active && (
                 <Badge variant="secondary" className="shrink-0">
-                  Inactivo
+                  {t("services.inactiveBadge" as any)}
                 </Badge>
               )}
             </div>

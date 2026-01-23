@@ -13,7 +13,7 @@ import { MapPin, Phone, AlertCircle } from "lucide-react";
 import { useBarbershopBySlug, usePublicServices, usePublicStaff, useCreateBooking } from "@/hooks/usePublicBooking";
 import { addMinutes } from "date-fns";
 import { toast } from "sonner";
-import { LanguageToggle } from "@/i18n";
+import { LanguageToggle, useI18n } from "@/i18n";
 
 export type BookingStep = 1 | 2 | 3 | 4 | 5;
 
@@ -49,6 +49,7 @@ const PublicBooking = () => {
   const { data: services, isLoading: servicesLoading } = usePublicServices(barbershop?.id);
   const { data: staff, isLoading: staffLoading } = usePublicStaff(barbershop?.id);
   const createBooking = useCreateBooking();
+  const { t } = useI18n();
 
   const [currentStep, setCurrentStep] = useState<BookingStep>(1);
   const [selectedServices, setSelectedServices] = useState<SelectedService[]>([]);
@@ -85,7 +86,7 @@ const PublicBooking = () => {
       setClientData(data);
       setBookingId("demo-booking-id");
       setCurrentStep(5);
-      toast.success("¡Esta es una vista previa! En una reserva real, recibirías un email de confirmación.");
+      toast.success(t("booking.public.demoToast" as any));
       return;
     }
 
@@ -103,7 +104,7 @@ const PublicBooking = () => {
     }
 
     if (!staffUserId) {
-      toast.error("No se pudo asignar un barbero");
+      toast.error(t("booking.public.assignBarberError" as any));
       return;
     }
 
@@ -129,13 +130,13 @@ const PublicBooking = () => {
       setClientData(data);
       setBookingId(result.id);
       setCurrentStep(5);
-      toast.success("¡Cita reservada con éxito!");
+      toast.success(t("booking.public.bookingSuccess" as any));
     } catch (error) {
       console.error("Error creating booking:", error);
       const message =
         error instanceof Error
           ? error.message
-          : "Error al crear la cita. Por favor intenta de nuevo.";
+          : t("booking.public.bookingError" as any);
       toast.error(message);
     }
   };
@@ -173,10 +174,10 @@ const PublicBooking = () => {
             <AlertCircle className="h-8 w-8 text-destructive" />
           </div>
           <h1 className="font-display text-2xl font-bold text-foreground">
-            Barbería no encontrada
+            {t("booking.public.notFoundTitle" as any)}
           </h1>
           <p className="mt-2 text-muted-foreground">
-            El enlace que seguiste no corresponde a ninguna barbería activa.
+            {t("booking.public.notFoundSubtitle" as any)}
           </p>
         </div>
       </div>
@@ -204,10 +205,10 @@ const PublicBooking = () => {
           {isDemo && (
             <div className="mb-6 rounded-lg border-2 border-primary/20 bg-primary/5 p-4 text-center">
               <p className="text-sm font-medium text-primary">
-                🎬 Vista previa - Esta es una demostración interactiva
+                {t("booking.public.demoTitle" as any)}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Puedes explorar todo el proceso de reserva, pero no se creará ninguna cita real
+                {t("booking.public.demoSubtitle" as any)}
               </p>
             </div>
           )}
