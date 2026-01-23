@@ -7,6 +7,7 @@ import { Menu, X } from "lucide-react";
 import { LanguageToggle, useI18n } from "@/i18n";
 
 const navLinks = [
+  { href: "#getting-started", labelKey: "nav.gettingStarted" },
   { href: "#features", labelKey: "nav.features" },
   { href: "#pricing", labelKey: "nav.pricing" },
 ];

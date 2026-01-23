@@ -89,3 +89,27 @@ export function useDeleteClient() {
     },
   });
 }
+
+export function useUpdateClient() {
+  const queryClient = useQueryClient();
+  const { barbershop } = useUserData();
+
+  return useMutation({
+    mutationFn: async (input: { id: string; name: string; email: string; phone?: string | null; notes?: string | null }) => {
+      const { error } = await supabase
+        .from("clients")
+        .update({
+          name: input.name,
+          email: input.email,
+          phone: input.phone ?? null,
+          notes: input.notes ?? null,
+        })
+        .eq("id", input.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clients", barbershop?.id] });
+    },
+  });
+}

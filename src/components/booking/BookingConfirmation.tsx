@@ -50,7 +50,7 @@ export function BookingConfirmation({
         </h1>
         {barbershop?.id === "demo-barbershop-id" ? (
           <p className="mt-2 text-muted-foreground">
-            Esta es una vista previa. En una reserva real, recibirías un email de confirmación en{" "}
+            {t("booking.confirmation.demoPrefix" as any)}{" "}
             <span className="font-medium text-foreground">{clientData.email}</span>
           </p>
         ) : (
@@ -107,7 +107,12 @@ export function BookingConfirmation({
             <div className="flex items-start gap-3">
               <Clock className="mt-0.5 h-5 w-5 text-primary" />
               <div>
-                <p className="font-medium">{totalDuration} minutos</p>
+                <p className="font-medium">
+                  {t("booking.confirmation.durationMinutes" as any).replace(
+                    "{minutes}",
+                    String(totalDuration),
+                  )}
+                </p>
                 <p className="text-sm text-muted-foreground">{t("booking.duration" as any)}</p>
               </div>
             </div>

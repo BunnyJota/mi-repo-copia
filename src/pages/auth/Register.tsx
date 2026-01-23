@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { getAppUrl } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 const Register = () => {
   const basePublicBookingUrl = `${getAppUrl()}/b/`;
@@ -23,6 +24,7 @@ const Register = () => {
   const [loading, setLoading] = useState(false);
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   const generateSlug = (name: string) => {
     return name
@@ -44,12 +46,12 @@ const Register = () => {
     e.preventDefault();
     
     if (!email || !password || !displayName) {
-      toast.error("Por favor completa todos los campos");
+      toast.error(t("auth.register.errors.missingFields" as any));
       return;
     }
 
     if (password.length < 6) {
-      toast.error("La contraseña debe tener al menos 6 caracteres");
+      toast.error(t("auth.register.errors.passwordLength" as any));
       return;
     }
 
@@ -60,7 +62,7 @@ const Register = () => {
     e.preventDefault();
     
     if (!barbershopName || !slug) {
-      toast.error("Por favor completa todos los campos");
+      toast.error(t("auth.register.errors.missingFields" as any));
       return;
     }
 
@@ -86,7 +88,7 @@ const Register = () => {
     const userId = signUpData?.user?.id;
     if (!userId) {
       setLoading(false);
-      toast.error("No se pudo obtener el usuario recién creado");
+      toast.error(t("auth.register.errors.userNotFound" as any));
       return;
     }
 
@@ -107,16 +109,16 @@ const Register = () => {
       setLoading(false);
       console.error("Error creating barbershop:", functionError);
       if (functionError.message.includes("duplicate") || functionError.message.includes("unique")) {
-        toast.error("Este nombre de URL ya está en uso. Elige otro.");
+        toast.error(t("auth.register.errors.slugInUse" as any));
       } else {
-        toast.error("Error al crear la barbería: " + functionError.message);
+        toast.error(t("auth.register.errors.createBarbershop" as any) + " " + functionError.message);
       }
       return;
     }
 
     if (!barbershopId) {
       setLoading(false);
-      toast.error("No se pudo crear la barbería");
+      toast.error(t("auth.register.errors.createBarbershopFailed" as any));
       return;
     }
 
@@ -127,14 +129,14 @@ const Register = () => {
       // Email confirmation required - show message and stay on page
       setNeedsEmailVerification(true);
       setLoading(false);
-      toast("Revisa tu correo", {
-        description: "Te enviamos un enlace para confirmar tu cuenta. Después de confirmar, inicia sesión para acceder a tu dashboard.",
+      toast(t("auth.register.verifyEmail.title" as any), {
+        description: t("auth.register.verifyEmail.description" as any),
       });
       return;
     }
 
     setLoading(false);
-    toast.success("¡Barbería creada con éxito!");
+    toast.success(t("auth.register.success" as any));
     navigate("/dashboard");
   };
 
@@ -154,16 +156,16 @@ const Register = () => {
         <Card>
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">
-              {step === "user" ? "Crea tu cuenta" : "Tu barbería"}
+              {step === "user" ? t("auth.register.titleUser" as any) : t("auth.register.titleBarbershop" as any)}
             </CardTitle>
             <CardDescription>
               {step === "user"
-                ? "Paso 1 de 2: Datos personales"
-                : "Paso 2 de 2: Configura tu barbería"}
+                ? t("auth.register.stepUser" as any)
+                : t("auth.register.stepBarbershop" as any)}
             </CardDescription>
             {needsEmailVerification && (
               <p className="mt-2 text-sm text-primary">
-                Revisa tu correo y confirma tu cuenta. Luego inicia sesión para continuar.
+                {t("auth.register.verifyNotice" as any)}
               </p>
             )}
           </CardHeader>
@@ -171,28 +173,28 @@ const Register = () => {
             {step === "user" ? (
               <form onSubmit={handleUserSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="displayName">Tu nombre</Label>
+                  <Label htmlFor="displayName">{t("auth.register.displayNameLabel" as any)}</Label>
                   <Input
                     id="displayName"
-                    placeholder="Juan Pérez"
+                    placeholder={t("auth.register.displayNamePlaceholder" as any)}
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">{t("auth.register.emailLabel" as any)}</Label>
                   <Input
                     id="email"
                     type="email"
-                    placeholder="tu@email.com"
+                    placeholder={t("auth.register.emailPlaceholder" as any)}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">Contraseña</Label>
+                  <Label htmlFor="password">{t("auth.register.passwordLabel" as any)}</Label>
                   <div className="relative">
                     <Input
                       id="password"
@@ -215,21 +217,21 @@ const Register = () => {
                     </button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Mínimo 6 caracteres
+                    {t("auth.register.passwordHelper" as any)}
                   </p>
                 </div>
 
                 <Button type="submit" variant="hero" size="lg" className="w-full">
-                  Continuar
+                  {t("auth.register.continue" as any)}
                 </Button>
               </form>
             ) : (
               <form onSubmit={handleBarbershopSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="barbershopName">Nombre de la barbería</Label>
+                  <Label htmlFor="barbershopName">{t("auth.register.barbershopNameLabel" as any)}</Label>
                   <Input
                     id="barbershopName"
-                    placeholder="The Classic Barber"
+                    placeholder={t("auth.register.barbershopNamePlaceholder" as any)}
                     value={barbershopName}
                     onChange={(e) => handleBarbershopNameChange(e.target.value)}
                     disabled={loading}
@@ -237,14 +239,14 @@ const Register = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="slug">URL de reservas</Label>
+                  <Label htmlFor="slug">{t("auth.register.slugLabel" as any)}</Label>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">
                       {basePublicBookingUrl}
                     </span>
                     <Input
                       id="slug"
-                      placeholder="the-classic-barber"
+                      placeholder={t("auth.register.slugPlaceholder" as any)}
                       value={slug}
                       onChange={(e) => setSlug(generateSlug(e.target.value))}
                       disabled={loading}
@@ -252,7 +254,7 @@ const Register = () => {
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Este será el link que compartirás con tus clientes
+                    {t("auth.register.slugHelper" as any)}
                   </p>
                 </div>
 
@@ -265,7 +267,7 @@ const Register = () => {
                     onClick={() => setStep("user")}
                     disabled={loading}
                   >
-                    Atrás
+                    {t("auth.register.back" as any)}
                   </Button>
                   <Button
                     type="submit"
@@ -277,10 +279,10 @@ const Register = () => {
                     {loading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creando...
+                        {t("auth.register.creating" as any)}
                       </>
                     ) : (
-                      "Crear barbería"
+                      t("auth.register.createBarbershop" as any)
                     )}
                   </Button>
                 </div>
@@ -288,12 +290,12 @@ const Register = () => {
             )}
 
             <div className="mt-6 text-center text-sm">
-              <span className="text-muted-foreground">¿Ya tienes cuenta? </span>
+              <span className="text-muted-foreground">{t("auth.register.haveAccount" as any)} </span>
               <Link
                 to="/login"
                 className="font-medium text-primary hover:underline"
               >
-                Inicia sesión
+                {t("auth.register.loginLink" as any)}
               </Link>
             </div>
           </CardContent>

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Calendar, User, Scissors, Clock, Loader2 } from "lucide-react";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { es, enUS } from "date-fns/locale";
 import type {
   SelectedService,
   SelectedBarber,
@@ -47,13 +47,13 @@ export function ClientForm({
     const newErrors: Record<string, string> = {};
 
     if (!name.trim()) {
-      newErrors.name = "El nombre es obligatorio";
+      newErrors.name = t("booking.client.errors.nameRequired" as any);
     }
 
     if (!email.trim()) {
-      newErrors.email = "El email es obligatorio";
+      newErrors.email = t("booking.client.errors.emailRequired" as any);
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = "Introduce un email válido";
+      newErrors.email = t("booking.client.errors.emailInvalid" as any);
     }
 
     setErrors(newErrors);
@@ -73,17 +73,17 @@ export function ClientForm({
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl font-bold text-foreground">
-          Tus datos
+          {t("booking.client.title" as any)}
         </h1>
         <p className="mt-1 text-muted-foreground">
-          Para confirmar tu reserva
+          {t("booking.client.subtitle" as any)}
         </p>
       </div>
 
       {/* Booking summary */}
       <Card variant="accent">
         <CardContent className="p-4">
-          <h2 className="mb-3 font-display font-semibold">Resumen de tu cita</h2>
+          <h2 className="mb-3 font-display font-semibold">{t("booking.summary.title" as any)}</h2>
           <div className="space-y-2 text-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Scissors className="h-4 w-4" />
@@ -100,18 +100,18 @@ export function ClientForm({
               <span>
                 {selectedDateTime &&
                   format(selectedDateTime.date, "EEEE d 'de' MMMM", {
-                    locale: es,
+                    locale: lang === "en" ? enUS : es,
                   })}{" "}
-                a las {selectedDateTime?.time}
+                {t("booking.summary.atTime" as any).replace("{time}", selectedDateTime?.time || "")}
               </span>
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <Clock className="h-4 w-4" />
-              <span>{totalDuration} minutos</span>
+              <span>{t("booking.summary.durationMinutes" as any).replace("{minutes}", String(totalDuration))}</span>
             </div>
             <div className="mt-3 border-t pt-3">
               <div className="flex items-center justify-between">
-                <span className="font-medium">Total a pagar</span>
+                <span className="font-medium">{t("booking.totalToPay" as any)}</span>
                 <span className="font-display text-lg font-bold text-primary">
                   {formatCurrency(totalPrice, barbershop?.currency || "USD", lang)}
                 </span>
@@ -124,10 +124,10 @@ export function ClientForm({
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="name">Nombre *</Label>
+          <Label htmlFor="name">{t("booking.client.nameLabel" as any)}</Label>
           <Input
             id="name"
-            placeholder="Tu nombre completo"
+            placeholder={t("booking.client.namePlaceholder" as any)}
             value={name}
             onChange={(e) => setName(e.target.value)}
             className={errors.name ? "border-destructive" : ""}
@@ -139,11 +139,11 @@ export function ClientForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="email">Email *</Label>
+          <Label htmlFor="email">{t("booking.client.emailLabel" as any)}</Label>
           <Input
             id="email"
             type="email"
-            placeholder="tu@email.com"
+            placeholder={t("booking.client.emailPlaceholder" as any)}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className={errors.email ? "border-destructive" : ""}
@@ -153,16 +153,16 @@ export function ClientForm({
             <p className="text-sm text-destructive">{errors.email}</p>
           )}
           <p className="text-xs text-muted-foreground">
-            Recibirás la confirmación aquí
+            {t("booking.client.emailHelper" as any)}
           </p>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="phone">Teléfono (opcional)</Label>
+          <Label htmlFor="phone">{t("booking.client.phoneLabel" as any)}</Label>
           <Input
             id="phone"
             type="tel"
-            placeholder="+34 600 000 000"
+            placeholder={t("booking.client.phonePlaceholder" as any)}
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             disabled={isSubmitting}
@@ -180,7 +180,7 @@ export function ClientForm({
             disabled={isSubmitting}
           >
             <ArrowLeft className="mr-2 h-5 w-5" />
-            Atrás
+            {t("common.back" as any)}
           </Button>
           <Button 
             type="submit" 
@@ -192,7 +192,7 @@ export function ClientForm({
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                {lang === "en" ? "Scheduling..." : "Agendando..."}
+                {t("booking.client.submitting" as any)}
               </>
             ) : (
               t("booking.confirmButton" as any)

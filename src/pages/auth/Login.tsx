@@ -9,6 +9,7 @@ import { Logo } from "@/components/layout/Logo";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { useI18n } from "@/i18n";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -17,12 +18,13 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!email || !password) {
-      toast.error("Por favor completa todos los campos");
+      toast.error(t("auth.login.errors.missingFields" as any));
       return;
     }
 
@@ -32,14 +34,14 @@ const Login = () => {
 
     if (error) {
       if (error.message.includes("Invalid login credentials")) {
-        toast.error("Email o contraseña incorrectos");
+        toast.error(t("auth.login.errors.invalidCredentials" as any));
       } else {
         toast.error(error.message);
       }
       return;
     }
 
-    toast.success("¡Bienvenido!");
+    toast.success(t("auth.login.success" as any));
     navigate("/dashboard");
   };
 
@@ -58,19 +60,19 @@ const Login = () => {
 
         <Card>
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Iniciar sesión</CardTitle>
+            <CardTitle className="text-2xl">{t("auth.login.title" as any)}</CardTitle>
             <CardDescription>
-              Accede a tu panel de barbería
+              {t("auth.login.subtitle" as any)}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t("auth.login.emailLabel" as any)}</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="tu@email.com"
+                  placeholder={t("auth.login.emailPlaceholder" as any)}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={loading}
@@ -78,7 +80,7 @@ const Login = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Contraseña</Label>
+                <Label htmlFor="password">{t("auth.login.passwordLabel" as any)}</Label>
                 <div className="relative">
                   <Input
                     id="password"
@@ -113,21 +115,21 @@ const Login = () => {
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Entrando...
+                    {t("auth.login.loading" as any)}
                   </>
                 ) : (
-                  "Entrar"
+                  t("auth.login.submit" as any)
                 )}
               </Button>
             </form>
 
             <div className="mt-6 text-center text-sm">
-              <span className="text-muted-foreground">¿No tienes cuenta? </span>
+              <span className="text-muted-foreground">{t("auth.login.noAccount" as any)} </span>
               <Link
                 to="/register"
                 className="font-medium text-primary hover:underline"
               >
-                Registra tu barbería
+                {t("auth.login.registerLink" as any)}
               </Link>
             </div>
           </CardContent>

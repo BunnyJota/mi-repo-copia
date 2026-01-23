@@ -170,16 +170,18 @@ export function Hero() {
                 </div>
                 <div className="divide-y divide-border">
                   {[
-                    { time: "10:00", client: "Miguel Rodríguez", service: "Corte clásico" },
-                    { time: "11:00", client: "Carlos Pérez", service: "Corte + Barba" },
-                    { time: "12:00", client: "Juan García", service: "Fade" },
+                    { time: "10:00", client: "Miguel Rodríguez", serviceKey: "hero.mockup.service1" },
+                    { time: "11:00", client: "Carlos Pérez", serviceKey: "hero.mockup.service2" },
+                    { time: "12:00", client: "Juan García", serviceKey: "hero.mockup.service3" },
                   ].map((apt, i) => (
                     <div key={i} className="flex items-center justify-between px-4 py-3">
                       <div className="flex items-center gap-3">
                         <span className="font-medium text-primary">{apt.time}</span>
                         <span className="text-foreground">{apt.client}</span>
                       </div>
-                      <span className="text-sm text-muted-foreground">{apt.service}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {t(apt.serviceKey as any)}
+                      </span>
                     </div>
                   ))}
                 </div>

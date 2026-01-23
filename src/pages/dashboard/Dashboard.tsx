@@ -14,17 +14,19 @@ import { ReportsView } from "@/components/dashboard/ReportsView";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { useUserData } from "@/hooks/useUserData";
 import { toast } from "sonner";
+import { useI18n } from "@/i18n";
 
 export type DashboardTab = "overview" | "agenda" | "appointments" | "clients" | "services" | "staff" | "reports" | "settings";
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
   const { subscriptionAccess, loading: userLoading } = useUserData();
+  const { t } = useI18n();
 
   const handleTabChange = (tab: DashboardTab) => {
     const restrictedTabs: DashboardTab[] = ["agenda", "appointments", "clients", "services", "staff", "reports"];
     if (!userLoading && subscriptionAccess.isPaymentRequired && restrictedTabs.includes(tab)) {
-      toast.error("Tu cuenta está limitada. Realiza el pago para continuar.");
+      toast.error(t("dashboard.restriction.paymentRequired" as any));
       setActiveTab("settings");
       return;
     }

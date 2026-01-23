@@ -31,7 +31,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { format, addDays, addMinutes, isSameDay, getDay } from "date-fns";
-import { es } from "date-fns/locale";
+import { es, enUS } from "date-fns/locale";
 import { Logo } from "@/components/layout/Logo";
 import { 
   useAppointmentByToken, 
@@ -42,14 +42,14 @@ import {
 import { useAvailableSlots, usePublicStaff } from "@/hooks/usePublicBooking";
 import { toast } from "sonner";
 import { cn, formatCurrency } from "@/lib/utils";
-import { useI18n } from "@/i18n";
+import { LanguageToggle, useI18n } from "@/i18n";
 
 type ManageView = "details" | "reschedule";
 
 const ManageAppointment = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   const { data, isLoading } = useAppointmentByToken(token);
   const cancelMutation = useCancelAppointment();
   const rescheduleMutation = useRescheduleAppointment();
@@ -86,10 +86,10 @@ const ManageAppointment = () => {
         appointmentId: data.appointment.id,
         token,
       });
-      toast.success("Cita cancelada exitosamente");
+      toast.success(t("booking.manage.cancelSuccess" as any));
       setShowCancelDialog(false);
     } catch (error) {
-      toast.error("Error al cancelar la cita");
+      toast.error(t("booking.manage.cancelError" as any));
     }
   };
 
@@ -108,12 +108,12 @@ const ManageAppointment = () => {
         newStartAt,
         newEndAt,
       });
-      toast.success("Cita reprogramada exitosamente");
+      toast.success(t("booking.manage.rescheduleSuccess" as any));
       setView("details");
       setSelectedDate(undefined);
       setSelectedTime(null);
     } catch (error) {
-      toast.error("Error al reprogramar la cita");
+      toast.error(t("booking.manage.rescheduleError" as any));
     }
   };
 
@@ -147,15 +147,17 @@ const ManageAppointment = () => {
             <AlertCircle className="h-8 w-8 text-destructive" />
           </div>
           <h1 className="font-display text-2xl font-bold text-foreground">
-            {errorType === "expired" ? "Enlace expirado" : "Enlace inválido"}
+            {errorType === "expired"
+              ? t("booking.manage.errorExpiredTitle" as any)
+              : t("booking.manage.errorInvalidTitle" as any)}
           </h1>
           <p className="mt-2 text-muted-foreground">
             {errorType === "expired"
-              ? "Este enlace ha expirado. Por favor contacta a la barbería para gestionar tu cita."
-              : "El enlace que seguiste no es válido o ha sido utilizado."}
+              ? t("booking.manage.errorExpiredSubtitle" as any)
+              : t("booking.manage.errorInvalidSubtitle" as any)}
           </p>
           <Button className="mt-6" onClick={() => navigate("/")}>
-            Volver al inicio
+            {t("booking.manage.backHome" as any)}
           </Button>
         </div>
       </div>
@@ -173,6 +175,7 @@ const ManageAppointment = () => {
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur-sm">
         <div className="container flex h-16 items-center justify-between">
           <Logo />
+          <LanguageToggle />
           <span className="font-display text-lg font-semibold">
             {appointment.barbershop.name}
           </span>
@@ -215,10 +218,10 @@ const ManageAppointment = () => {
                 <div className="text-center">
                   <h1 className="font-display text-2xl font-bold text-foreground">
                     {isCanceled
-                      ? "Cita Cancelada"
+                      ? t("booking.manage.statusCanceledTitle" as any)
                       : isPast
-                      ? "Cita Completada"
-                      : "Tu Cita"}
+                      ? t("booking.manage.statusCompletedTitle" as any)
+                      : t("booking.manage.statusUpcomingTitle" as any)}
                   </h1>
                   <Badge
                     variant={
@@ -231,12 +234,12 @@ const ManageAppointment = () => {
                     className="mt-2"
                   >
                     {isCanceled
-                      ? "Cancelada"
+                      ? t("booking.manage.statusCanceled" as any)
                       : isPast
-                      ? "Completada"
+                      ? t("booking.manage.statusCompleted" as any)
                       : appointment.status === "confirmed"
-                      ? "Confirmada"
-                      : "Pendiente"}
+                      ? t("booking.manage.statusConfirmed" as any)
+                      : t("booking.manage.statusPending" as any)}
                   </Badge>
                 </div>
 
@@ -249,11 +252,13 @@ const ManageAppointment = () => {
                         <p className="font-medium">
                           {format(
                             new Date(appointment.start_at),
-                            "EEEE d 'de' MMMM 'de' yyyy",
-                            { locale: es }
+                            lang === "en" ? "EEEE, MMMM d, yyyy" : "EEEE d 'de' MMMM 'de' yyyy",
+                            { locale: lang === "en" ? enUS : es }
                           )}
                         </p>
-                        <p className="text-sm text-muted-foreground">Fecha</p>
+                        <p className="text-sm text-muted-foreground">
+                          {t("booking.manage.details.dateLabel" as any)}
+                        </p>
                       </div>
                     </div>
 
@@ -264,7 +269,9 @@ const ManageAppointment = () => {
                           {format(new Date(appointment.start_at), "HH:mm")} -{" "}
                           {format(new Date(appointment.end_at), "HH:mm")}
                         </p>
-                        <p className="text-sm text-muted-foreground">Hora</p>
+                        <p className="text-sm text-muted-foreground">
+                          {t("booking.manage.details.timeLabel" as any)}
+                        </p>
                       </div>
                     </div>
 
@@ -272,7 +279,9 @@ const ManageAppointment = () => {
                       <User className="mt-0.5 h-5 w-5 text-primary" />
                       <div>
                         <p className="font-medium">{appointment.staff.display_name}</p>
-                        <p className="text-sm text-muted-foreground">Barbero</p>
+                        <p className="text-sm text-muted-foreground">
+                          {t("booking.manage.details.barberLabel" as any)}
+                        </p>
                       </div>
                     </div>
 
@@ -282,7 +291,9 @@ const ManageAppointment = () => {
                         <p className="font-medium">
                           {appointment.services.map((s) => s.name).join(", ")}
                         </p>
-                        <p className="text-sm text-muted-foreground">Servicios</p>
+                        <p className="text-sm text-muted-foreground">
+                          {t("booking.manage.details.servicesLabel" as any)}
+                        </p>
                       </div>
                     </div>
 
@@ -291,7 +302,9 @@ const ManageAppointment = () => {
                         <MapPin className="mt-0.5 h-5 w-5 text-primary" />
                         <div>
                           <p className="font-medium">{appointment.barbershop.address}</p>
-                          <p className="text-sm text-muted-foreground">Dirección</p>
+                          <p className="text-sm text-muted-foreground">
+                            {t("booking.manage.details.addressLabel" as any)}
+                          </p>
                         </div>
                       </div>
                     )}
@@ -301,14 +314,16 @@ const ManageAppointment = () => {
                         <Phone className="mt-0.5 h-5 w-5 text-primary" />
                         <div>
                           <p className="font-medium">{appointment.barbershop.phone}</p>
-                          <p className="text-sm text-muted-foreground">Teléfono</p>
+                          <p className="text-sm text-muted-foreground">
+                            {t("booking.manage.details.phoneLabel" as any)}
+                          </p>
                         </div>
                       </div>
                     )}
 
                     <div className="border-t pt-4">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium">Total a pagar</span>
+                        <span className="font-medium">{t("booking.totalToPay" as any)}</span>
                         <span className="font-display text-xl font-bold text-primary">
                           {formatCurrency(appointment.total_price_estimated, appointment.barbershop?.currency || "USD", lang)}
                         </span>
@@ -327,7 +342,7 @@ const ManageAppointment = () => {
                       onClick={() => setView("reschedule")}
                     >
                       <RefreshCw className="mr-2 h-5 w-5" />
-                      Reprogramar cita
+                      {t("booking.manage.rescheduleButton" as any)}
                     </Button>
                     <Button
                       variant="destructive"
@@ -336,7 +351,7 @@ const ManageAppointment = () => {
                       onClick={() => setShowCancelDialog(true)}
                     >
                       <XCircle className="mr-2 h-5 w-5" />
-                      Cancelar cita
+                      {t("booking.manage.cancelButton" as any)}
                     </Button>
                   </div>
                 )}
@@ -346,7 +361,7 @@ const ManageAppointment = () => {
                   className="w-full"
                   onClick={() => navigate("/")}
                 >
-                  Volver al inicio
+                  {t("booking.manage.backHome" as any)}
                 </Button>
               </motion.div>
             ) : (
@@ -367,15 +382,15 @@ const ManageAppointment = () => {
                   }}
                 >
                   <ArrowLeft className="mr-2 h-4 w-4" />
-                  Volver
+                  {t("common.back" as any)}
                 </Button>
 
                 <div>
                   <h1 className="font-display text-2xl font-bold text-foreground">
-                    Reprogramar cita
+                    {t("booking.manage.rescheduleTitle" as any)}
                   </h1>
                   <p className="mt-1 text-muted-foreground">
-                    Selecciona una nueva fecha y hora
+                    {t("booking.manage.rescheduleSubtitle" as any)}
                   </p>
                 </div>
 
@@ -392,7 +407,7 @@ const ManageAppointment = () => {
                         date < new Date() ||
                         date > addDays(new Date(), appointment.barbershop.booking_window_days)
                       }
-                      locale={es}
+                      locale={lang === "en" ? enUS : es}
                       className="mx-auto"
                     />
                   </CardContent>
@@ -402,7 +417,7 @@ const ManageAppointment = () => {
                   <div>
                     <h2 className="mb-3 flex items-center gap-2 font-display font-semibold text-foreground">
                       <Clock className="h-4 w-4" />
-                      Horarios disponibles
+                      {t("booking.manage.availableSlotsTitle" as any)}
                     </h2>
                     {slotsLoading ? (
                       <div className="grid grid-cols-4 gap-2">
@@ -429,7 +444,7 @@ const ManageAppointment = () => {
                       </div>
                     ) : (
                       <p className="rounded-lg bg-muted p-4 text-center text-sm text-muted-foreground">
-                        No hay horarios disponibles para esta fecha.
+                        {t("booking.manage.noSlots" as any)}
                       </p>
                     )}
                   </div>
@@ -445,10 +460,10 @@ const ManageAppointment = () => {
                   {rescheduleMutation.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Reprogramando...
+                      {t("booking.manage.rescheduling" as any)}
                     </>
                   ) : (
-                    "Confirmar nueva fecha"
+                    t("booking.manage.confirmReschedule" as any)
                   )}
                 </Button>
               </motion.div>
@@ -461,14 +476,13 @@ const ManageAppointment = () => {
       <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Cancelar cita?</AlertDialogTitle>
+            <AlertDialogTitle>{t("booking.manage.cancelDialog.title" as any)}</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. La barbería será notificada de la
-              cancelación.
+              {t("booking.manage.cancelDialog.description" as any)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Volver</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.back" as any)}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleCancel}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -477,10 +491,10 @@ const ManageAppointment = () => {
               {cancelMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Cancelando...
+                  {t("booking.manage.canceling" as any)}
                 </>
               ) : (
-                "Sí, cancelar cita"
+                t("booking.manage.confirmCancel" as any)
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

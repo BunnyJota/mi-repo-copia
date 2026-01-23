@@ -20,6 +20,7 @@ import { HoursSettingsDialog } from "./settings/HoursSettingsDialog";
 import { NotificationsSettingsDialog } from "./settings/NotificationsSettingsDialog";
 import { getAppUrl } from "@/lib/utils";
 import { Loader2, X } from "lucide-react";
+import { LanguageToggle, useI18n } from "@/i18n";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,6 +40,7 @@ interface SettingsViewProps {
 
 export function SettingsView({ onTabChange }: SettingsViewProps) {
   const { barbershop, subscription, trialDaysRemaining, subscriptionAccess } = useUserData();
+  const { t, lang } = useI18n();
   const [barbershopDialogOpen, setBarbershopDialogOpen] = useState(false);
   const [hoursDialogOpen, setHoursDialogOpen] = useState(false);
   const [notificationsDialogOpen, setNotificationsDialogOpen] = useState(false);
@@ -79,27 +81,32 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
   };
 
   const settingsItems = [
-    { id: "barbershop", icon: Store, label: "Mi barbería", description: "Nombre, logo, contacto" },
-    { id: "staff", icon: Users, label: "Barberos", description: "Gestiona tu equipo" },
-    { id: "services", icon: Scissors, label: "Servicios", description: "Precios y duración" },
-    { id: "hours", icon: Clock, label: "Horarios", description: "Días y horas de apertura" },
-    { id: "notifications", icon: Bell, label: "Notificaciones", description: "Recordatorios por email" },
+    { id: "barbershop", icon: Store, labelKey: "settings.item.barbershop.title", descriptionKey: "settings.item.barbershop.description" },
+    { id: "staff", icon: Users, labelKey: "settings.item.staff.title", descriptionKey: "settings.item.staff.description" },
+    { id: "services", icon: Scissors, labelKey: "settings.item.services.title", descriptionKey: "settings.item.services.description" },
+    { id: "hours", icon: Clock, labelKey: "settings.item.hours.title", descriptionKey: "settings.item.hours.description" },
+    { id: "notifications", icon: Bell, labelKey: "settings.item.notifications.title", descriptionKey: "settings.item.notifications.description" },
   ];
 
   const getSubscriptionBadge = () => {
     if (!subscription) return null;
     
     if (subscription.status === "trial" && trialDaysRemaining !== null) {
-      return <Badge variant="trial">Trial: {trialDaysRemaining} días restantes</Badge>;
+      return (
+        <Badge variant="trial">
+          {t("settings.subscription.badge.trialPrefix" as any)} {trialDaysRemaining}{" "}
+          {t("settings.subscription.badge.daysRemaining" as any)}
+        </Badge>
+      );
     }
     if (subscription.status === "active") {
-      return <Badge variant="default">Activo</Badge>;
+      return <Badge variant="default">{t("settings.subscription.badge.active" as any)}</Badge>;
     }
     if (subscriptionAccess.isPaymentRequired) {
-      return <Badge variant="destructive">Pago requerido</Badge>;
+      return <Badge variant="destructive">{t("settings.subscription.badge.paymentRequired" as any)}</Badge>;
     }
     if (subscription.status === "canceled") {
-      return <Badge variant="outline">Cancelado</Badge>;
+      return <Badge variant="outline">{t("settings.subscription.badge.canceled" as any)}</Badge>;
     }
     return null;
   };
@@ -120,7 +127,8 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "";
     try {
-      return new Date(dateString).toLocaleDateString("es-ES", {
+      const locale = lang === "en" ? "en-US" : "es-ES";
+      return new Date(dateString).toLocaleDateString(locale, {
         year: "numeric",
         month: "long",
         day: "numeric",
@@ -133,7 +141,8 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
   const formatDateShort = (dateString: string | null) => {
     if (!dateString) return "";
     try {
-      return new Date(dateString).toLocaleDateString("es-ES", {
+      const locale = lang === "en" ? "en-US" : "es-ES";
+      return new Date(dateString).toLocaleDateString(locale, {
         year: "numeric",
         month: "short",
         day: "numeric",
@@ -151,9 +160,9 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl font-bold text-foreground">
-          Configuración
+          {t("settings.title" as any)}
         </h1>
-        <p className="text-muted-foreground">Gestiona tu barbería</p>
+        <p className="text-muted-foreground">{t("settings.subtitle" as any)}</p>
       </div>
 
       {/* Subscription card */}
@@ -164,10 +173,10 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <CreditCard className="h-5 w-5 text-primary" />
-                  <span className="font-display font-semibold">Suscripción</span>
+                  <span className="font-display font-semibold">{t("settings.subscription.title" as any)}</span>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Plan Profesional - $10 USD/mes (pago mensual recurrente)
+                  {t("settings.subscription.plan" as any)}
                 </p>
                 <div className="mt-2">
                   {getSubscriptionBadge()}
@@ -184,10 +193,10 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
                     {createSubscription.isPending ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Procesando...
+                        {t("settings.subscription.processing" as any)}
                       </>
                     ) : (
-                      "Pagar suscripción mensual"
+                      t("settings.subscription.payMonthly" as any)
                     )}
                   </Button>
                 )}
@@ -201,10 +210,10 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
                     {createSubscription.isPending ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Procesando...
+                        {t("settings.subscription.processing" as any)}
                       </>
                     ) : (
-                      "Activar"
+                      t("settings.subscription.activate" as any)
                     )}
                   </Button>
                 )}
@@ -219,12 +228,12 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
                     {cancelSubscription.isPending ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Cancelando...
+                        {t("settings.subscription.canceling" as any)}
                       </>
                     ) : (
                       <>
                         <X className="mr-2 h-4 w-4" />
-                        Cancelar suscripción
+                        {t("settings.subscription.cancel" as any)}
                       </>
                     )}
                   </Button>
@@ -239,10 +248,10 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
                     {createSubscription.isPending ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Procesando...
+                        {t("settings.subscription.processing" as any)}
                       </>
                     ) : (
-                      "Reactivar"
+                      t("settings.subscription.reactivate" as any)
                     )}
                   </Button>
                 )}
@@ -251,20 +260,20 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
             {subscription?.status === "active" && subscription.current_period_end && (
               <div className="pt-3 border-t border-primary/10">
                 <p className="text-sm font-medium text-foreground">
-                  Próxima fecha de pago
+                  {t("settings.subscription.nextPaymentLabel" as any)}
                 </p>
                 <p className="mt-1 text-base font-semibold text-primary">
                   {formatDate(subscription.current_period_end)}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Tu suscripción se renovará automáticamente cada mes en esta fecha. Puedes cancelar en cualquier momento.
+                  {t("settings.subscription.nextPaymentDescription" as any)}
                 </p>
               </div>
             )}
             {subscription?.status === "trial" && subscription.trial_ends_at && (
               <div className="pt-3 border-t border-primary/10">
                 <p className="text-sm font-medium text-foreground">
-                  Fin del período de prueba
+                  {t("settings.subscription.trialEndLabel" as any)}
                 </p>
                 <p className="mt-1 text-base font-semibold text-primary">
                   {formatDate(subscription.trial_ends_at)}
@@ -273,21 +282,21 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
             )}
             {subscriptionAccess.isTrialEndingToday && (
               <div className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning">
-                Tu prueba gratuita termina hoy. Realiza el pago para evitar la suspensión de funciones.
+                {t("settings.subscription.trialEndingTodayWarning" as any)}
               </div>
             )}
             {subscriptionAccess.isPaymentRequired && (
               <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                Tu prueba gratuita terminó y la cuenta quedó limitada. Solo puedes continuar pagando la suscripción.
+                {t("settings.subscription.paymentRequiredWarning" as any)}
               </div>
             )}
             {subscription?.status === "canceled" && (
               <div className="pt-3 border-t border-primary/10">
                 <p className="text-sm text-muted-foreground">
-                  Tu suscripción ha sido cancelada. No se realizarán más cargos automáticos.
+                  {t("settings.subscription.canceledInfoTitle" as any)}
                 </p>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Puedes reactivar tu suscripción en cualquier momento para continuar disfrutando del Plan Profesional.
+                  {t("settings.subscription.canceledInfoBody" as any)}
                 </p>
               </div>
             )}
@@ -309,9 +318,9 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
                   <item.icon className="h-5 w-5 text-foreground" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-foreground">{item.label}</p>
+                  <p className="font-medium text-foreground">{t(item.labelKey as any)}</p>
                   <p className="text-sm text-muted-foreground">
-                    {item.description}
+                    {t(item.descriptionKey as any)}
                   </p>
                 </div>
                 <ChevronRight className="h-5 w-5 text-muted-foreground" />
@@ -321,26 +330,39 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
         </CardContent>
       </Card>
 
+      {/* Language selector */}
+      <Card>
+        <CardContent className="flex items-center justify-between gap-4 p-4">
+          <div>
+            <p className="font-medium text-foreground">{t("settings.language.title" as any)}</p>
+            <p className="text-sm text-muted-foreground">
+              {t("settings.language.description" as any)}
+            </p>
+          </div>
+          <LanguageToggle />
+        </CardContent>
+      </Card>
+
       {/* Public page link */}
         <Card>
           <CardContent className="p-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="min-w-0">
-                <p className="font-medium">Tu página de reservas</p>
+                <p className="font-medium">{t("settings.publicPage.title" as any)}</p>
                 <p className="text-sm text-muted-foreground break-all">
-                {publicUrl ?? "Configura tu barbería para generar el link público."}
+                {publicUrl ?? t("settings.publicPage.empty" as any)}
                 </p>
               </div>
             {publicUrl ? (
               <Button variant="outline" size="sm" className="gap-2 shrink-0" asChild>
                 <Link to={`/b/${barbershop?.slug}`} target="_blank">
                   <ExternalLink className="h-4 w-4" />
-                  Abrir
+                  {t("settings.publicPage.open" as any)}
                 </Link>
               </Button>
             ) : (
               <Button variant="outline" size="sm" className="shrink-0" onClick={() => setBarbershopDialogOpen(true)}>
-                Completar configuración
+                {t("settings.publicPage.complete" as any)}
               </Button>
             )}
             </div>
@@ -350,20 +372,20 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
       {/* Reports */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Reportes</CardTitle>
+          <CardTitle className="text-lg">{t("settings.reports.title" as any)}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="divide-y">
             <button className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-muted/50">
-              <span>Ingresos por período</span>
+              <span>{t("settings.reports.period" as any)}</span>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
             <button className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-muted/50">
-              <span>Ingresos por barbero</span>
+              <span>{t("settings.reports.barber" as any)}</span>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
             <button className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-muted/50">
-              <span>Ingresos por servicio</span>
+              <span>{t("settings.reports.service" as any)}</span>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </button>
           </div>
@@ -386,21 +408,21 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
       <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Cancelar suscripción?</AlertDialogTitle>
+            <AlertDialogTitle>{t("settings.cancel.title" as any)}</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Estás seguro de que deseas cancelar tu suscripción? Tu acceso al Plan Profesional 
-              continuará hasta el final del período de facturación actual ({subscription?.current_period_end ? formatDateShort(subscription.current_period_end) : "fecha de renovación"}).
+              {t("settings.cancel.descriptionStart" as any)}{" "}
+              ({subscription?.current_period_end ? formatDateShort(subscription.current_period_end) : t("settings.cancel.renewalFallback" as any)}).
               <br /><br />
-              Después de esa fecha, no se realizarán más cargos y perderás el acceso a las funciones premium.
+              {t("settings.cancel.descriptionEnd" as any)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Mantener suscripción</AlertDialogCancel>
+            <AlertDialogCancel>{t("settings.cancel.keep" as any)}</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmCancelSubscription}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Cancelar suscripción
+              {t("settings.cancel.confirm" as any)}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

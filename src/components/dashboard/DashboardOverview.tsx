@@ -21,7 +21,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { format, isPast } from "date-fns";
-import { es } from "date-fns/locale";
+import { es, enUS } from "date-fns/locale";
 import { useAppointmentStats, useUpcomingAgendaAppointments, useUpdateAppointmentStatus } from "@/hooks/useAppointments";
 import { useUserData } from "@/hooks/useUserData";
 import { useState, useEffect } from "react";
@@ -39,7 +39,7 @@ interface DashboardOverviewProps {
 
 export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
   const { profile, barbershop, loading: userLoading } = useUserData();
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   const queryClient = useQueryClient();
   const { data: upcomingData, isLoading: upcomingLoading } = useUpcomingAgendaAppointments({
     refetchInterval: 15000, // Refetch every 15 seconds for real-time updates
@@ -62,10 +62,10 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
     try {
       await navigator.clipboard.writeText(bookingUrl);
       setCopied(true);
-      toast.success("Link copiado al portapapeles");
+      toast.success(t("dashboard.bookingLink.copied" as any));
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      toast.error("Error al copiar el link");
+      toast.error(t("dashboard.bookingLink.copyError" as any));
     }
   };
 
@@ -73,11 +73,16 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
   const upcomingTotal = upcomingData?.total || 0;
   const remainingCount = Math.max(upcomingTotal - upcomingAppointments.length, 0);
 
-  const displayName = profile?.display_name?.split(" ")[0] || "Usuario";
+  const displayName = profile?.display_name?.split(" ")[0] || t("dashboard.user.fallback" as any);
   
   // Determine greeting based on time of day
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches";
+  const greeting =
+    hour < 12
+      ? t("dashboard.greeting.morning" as any)
+      : hour < 18
+      ? t("dashboard.greeting.afternoon" as any)
+      : t("dashboard.greeting.evening" as any);
 
   // Set up real-time subscription for appointments
   useEffect(() => {
@@ -110,7 +115,7 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
 
   const handleCompleteAppointment = async (appointmentId: string) => {
     if (updateAppointmentStatus.isPending) return;
-    const confirm = window.confirm("¿Marcar esta cita como completada?");
+    const confirm = window.confirm(t("dashboard.upcoming.confirmComplete" as any));
     if (!confirm) return;
     await updateAppointmentStatus.mutateAsync({ id: appointmentId, status: "completed" });
   };
@@ -123,7 +128,7 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
           {greeting}, {displayName}
         </h1>
         <p className="text-muted-foreground">
-          {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
+          {format(new Date(), "EEEE d 'de' MMMM", { locale: lang === "en" ? enUS : es })}
         </p>
       </div>
 
@@ -137,9 +142,9 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
               <Link2 className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h3 className="font-semibold text-foreground">Tu página de reservas</h3>
+              <h3 className="font-semibold text-foreground">{t("dashboard.bookingLink.title" as any)}</h3>
               <p className="text-sm text-muted-foreground">
-                Comparte este link con tus clientes
+                {t("dashboard.bookingLink.subtitle" as any)}
               </p>
             </div>
           </div>
@@ -174,7 +179,7 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
           ) : (
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">
-                Configura tu barbería para generar el enlace público de reservas.
+                {t("dashboard.bookingLink.empty" as any)}
               </p>
               <Button
                 variant="outline"
@@ -184,7 +189,7 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
                   window.dispatchEvent(new CustomEvent("open-barbershop-dialog"));
                 }}
               >
-                Completar configuración
+                {t("dashboard.bookingLink.complete" as any)}
               </Button>
             </div>
           )}
@@ -196,9 +201,9 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
         <Card>
           <CardContent className="p-8 text-center">
             <AlertCircle className="mx-auto h-12 w-12 mb-4 text-muted-foreground opacity-50" />
-            <h3 className="text-lg font-semibold mb-2">Configura tu barbería</h3>
+            <h3 className="text-lg font-semibold mb-2">{t("dashboard.setup.title" as any)}</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Completa la configuración inicial para ver estadísticas y gestionar citas.
+              {t("dashboard.setup.subtitle" as any)}
             </p>
             <Button
               onClick={() => {
@@ -206,26 +211,26 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
                 window.dispatchEvent(new CustomEvent("open-barbershop-dialog"));
               }}
             >
-              Completar configuración
+              {t("dashboard.setup.complete" as any)}
             </Button>
           </CardContent>
         </Card>
       ) : (
         <div>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-foreground">Resumen del día</h2>
+            <h2 className="text-lg font-semibold text-foreground">{t("dashboard.stats.title" as any)}</h2>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => {
                 queryClient.invalidateQueries({ queryKey: ["appointments"] });
                 queryClient.invalidateQueries({ queryKey: ["appointment-stats"] });
-                toast.success("Datos actualizados");
+                toast.success(t("dashboard.stats.updated" as any));
               }}
               className="gap-2"
             >
               <RefreshCw className="h-4 w-4" />
-              Actualizar
+              {t("dashboard.stats.refresh" as any)}
             </Button>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -244,7 +249,7 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
                     <CalendarCheck className="h-6 w-6 text-primary" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm text-muted-foreground">Citas hoy</p>
+                    <p className="text-sm text-muted-foreground">{t("dashboard.stats.todayAppointments" as any)}</p>
                     <p className="font-display text-2xl font-bold">{stats?.todayCount ?? 0}</p>
                   </div>
                 </CardContent>
@@ -255,7 +260,7 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
                     <Users className="h-6 w-6 text-success" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm text-muted-foreground">Clientes únicos</p>
+                    <p className="text-sm text-muted-foreground">{t("dashboard.stats.uniqueClients" as any)}</p>
                     <p className="font-display text-2xl font-bold">{stats?.uniqueClientsToday ?? 0}</p>
                   </div>
                 </CardContent>
@@ -266,13 +271,14 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
                     <DollarSign className="h-6 w-6 text-primary" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm text-muted-foreground">Ingresos del día</p>
+                    <p className="text-sm text-muted-foreground">{t("dashboard.stats.todayRevenue" as any)}</p>
                     <p className="font-display text-2xl font-bold">
                       {formatCurrency(stats?.todayRevenue || 0, barbershop?.currency || "USD", lang)}
                     </p>
                     {stats?.todayPaidRevenue !== undefined && stats.todayPaidRevenue > 0 && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        {formatCurrency(stats.todayPaidRevenue, barbershop?.currency || "USD", lang)} pagados
+                        {formatCurrency(stats.todayPaidRevenue, barbershop?.currency || "USD", lang)}{" "}
+                        {t("dashboard.stats.paid" as any)}
                       </p>
                     )}
                   </div>
@@ -284,7 +290,7 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
                     <AlertCircle className="h-6 w-6 text-warning" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm text-muted-foreground">Citas pendientes</p>
+                    <p className="text-sm text-muted-foreground">{t("dashboard.stats.pendingAppointments" as any)}</p>
                     <p className="font-display text-2xl font-bold">{stats?.pendingCount ?? 0}</p>
                   </div>
                 </CardContent>
@@ -311,9 +317,9 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
                     <TrendingUp className="h-6 w-6 text-primary" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm text-muted-foreground">Esta semana</p>
+                    <p className="text-sm text-muted-foreground">{t("dashboard.stats.thisWeek" as any)}</p>
                     <p className="font-display text-2xl font-bold">{stats?.weekCount ?? 0}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Citas programadas</p>
+                    <p className="text-xs text-muted-foreground mt-1">{t("dashboard.stats.scheduledAppointments" as any)}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -323,11 +329,11 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
                     <DollarSign className="h-6 w-6 text-primary" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm text-muted-foreground">Ingresos del mes</p>
+                    <p className="text-sm text-muted-foreground">{t("dashboard.stats.monthRevenue" as any)}</p>
                     <p className="font-display text-2xl font-bold">
                       {formatCurrency(stats?.monthRevenue || 0, barbershop?.currency || "USD", lang)}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">Citas completadas</p>
+                    <p className="text-xs text-muted-foreground mt-1">{t("dashboard.stats.completedAppointments" as any)}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -340,14 +346,18 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
       <Card>
         <CardHeader className="flex-row items-center justify-between pb-4">
           <div>
-            <CardTitle className="text-lg">Próximas citas</CardTitle>
+            <CardTitle className="text-lg">{t("dashboard.upcoming.title" as any)}</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              Se actualiza automáticamente cada 15 segundos
+              {t("dashboard.upcoming.autoRefresh" as any)}
             </p>
             {upcomingTotal > 0 && (
               <p className="text-xs text-muted-foreground mt-1">
-                Mostrando {upcomingAppointments.length} de {upcomingTotal}
-                {remainingCount > 0 ? ` • ${remainingCount} restantes` : ""}
+                {t("dashboard.upcoming.showing" as any)
+                  .replace("{shown}", String(upcomingAppointments.length))
+                  .replace("{total}", String(upcomingTotal))}
+                {remainingCount > 0
+                  ? ` • ${t("dashboard.upcoming.remaining" as any).replace("{count}", String(remainingCount))}`
+                  : ""}
               </p>
             )}
           </div>
@@ -359,7 +369,7 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
                 queryClient.invalidateQueries({ queryKey: ["appointments"] });
                 queryClient.invalidateQueries({ queryKey: ["appointment-stats"] });
                 queryClient.invalidateQueries({ queryKey: ["upcoming-agenda-appointments"] });
-                toast.success("Citas actualizadas");
+                toast.success(t("dashboard.upcoming.updated" as any));
               }}
               className="gap-2"
             >
@@ -371,7 +381,7 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
               className="gap-1"
               onClick={() => onTabChange?.("agenda")}
             >
-              Ver todas
+              {t("dashboard.upcoming.viewAll" as any)}
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
@@ -393,14 +403,14 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
           ) : !barbershop?.id ? (
             <div className="px-6 py-8 text-center text-muted-foreground">
               <AlertCircle className="mx-auto h-12 w-12 mb-3 opacity-50" />
-              <p className="font-medium">Configura tu barbería</p>
-              <p className="text-sm mt-1">Completa la configuración para ver las citas</p>
+              <p className="font-medium">{t("dashboard.upcoming.setupTitle" as any)}</p>
+              <p className="text-sm mt-1">{t("dashboard.upcoming.setupSubtitle" as any)}</p>
             </div>
           ) : upcomingAppointments.length === 0 ? (
             <div className="px-6 py-8 text-center text-muted-foreground">
               <Clock className="mx-auto h-12 w-12 mb-3 opacity-50" />
-              <p className="font-medium">No hay citas programadas</p>
-              <p className="text-sm mt-1">Las próximas citas aparecerán aquí automáticamente</p>
+              <p className="font-medium">{t("dashboard.upcoming.emptyTitle" as any)}</p>
+              <p className="text-sm mt-1">{t("dashboard.upcoming.emptySubtitle" as any)}</p>
             </div>
           ) : (
             <div className="divide-y">
@@ -435,12 +445,12 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
                         </p>
                         {isNext && (
                           <Badge variant="confirmed" className="text-xs">
-                            Siguiente
+                            {t("dashboard.upcoming.next" as any)}
                           </Badge>
                         )}
                         {isPastAppointment && (
                           <Badge variant="secondary" className="text-xs">
-                            Atrasada
+                            {t("dashboard.upcoming.late" as any)}
                           </Badge>
                         )}
                       </div>
@@ -449,7 +459,7 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
                       </p>
                       <div className="flex items-center gap-2 mt-1">
                         <p className="text-xs text-muted-foreground">
-                          {apt.staff?.display_name || "Sin asignar"}
+                          {apt.staff?.display_name || t("dashboard.upcoming.unassigned" as any)}
                         </p>
                         <span className="text-xs text-muted-foreground">•</span>
                         <p className="text-xs font-medium text-foreground">
@@ -472,7 +482,9 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
                         }
                         className="text-xs"
                       >
-                        {apt.status === "confirmed" ? "Confirmada" : "Pendiente"}
+                        {apt.status === "confirmed"
+                          ? t("dashboard.upcoming.statusConfirmed" as any)
+                          : t("dashboard.upcoming.statusPending" as any)}
                       </Badge>
                       <Button
                         variant="ghost"
@@ -481,7 +493,7 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
                         onClick={() => handleCompleteAppointment(apt.id)}
                         disabled={updateAppointmentStatus.isPending}
                       >
-                        Completar
+                        {t("dashboard.upcoming.complete" as any)}
                       </Button>
                     </div>
                   </div>
@@ -501,7 +513,7 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
           onClick={() => onTabChange?.("agenda")}
         >
           <CalendarCheck className="h-6 w-6 text-primary" />
-          <span>Ver agenda</span>
+          <span>{t("dashboard.quickActions.agenda" as any)}</span>
         </Button>
         <Button 
           variant="outline" 
@@ -510,7 +522,7 @@ export function DashboardOverview({ onTabChange }: DashboardOverviewProps) {
           onClick={() => onTabChange?.("clients")}
         >
           <Users className="h-6 w-6 text-primary" />
-          <span>Ver clientes</span>
+          <span>{t("dashboard.quickActions.clients" as any)}</span>
         </Button>
       </div>
     </div>

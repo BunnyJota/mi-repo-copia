@@ -5,6 +5,7 @@ import { ArrowRight, ArrowLeft, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SelectedBarber } from "@/pages/booking/PublicBooking";
 import type { PublicStaff } from "@/hooks/usePublicBooking";
+import { useI18n } from "@/i18n";
 
 interface BarberSelectionProps {
   staff: PublicStaff[];
@@ -21,9 +22,10 @@ export function BarberSelection({
   onNext,
   onBack,
 }: BarberSelectionProps) {
+  const { t } = useI18n();
   // Create barber options with "any" option first
   const barberOptions: SelectedBarber[] = [
-    { id: "any", name: "Cualquiera disponible", photoUrl: undefined },
+    { id: "any", name: t("booking.barber.any" as any), photoUrl: undefined },
     ...staff.map((s) => ({
       id: s.id,
       name: s.display_name,
@@ -37,19 +39,19 @@ export function BarberSelection({
       <div className="space-y-6">
         <div>
           <h1 className="font-display text-2xl font-bold text-foreground">
-            Elige tu barbero
+            {t("booking.barber.title" as any)}
           </h1>
           <p className="mt-1 text-muted-foreground">
-            O deja que te asignemos el primero disponible
+            {t("booking.barber.subtitle" as any)}
           </p>
         </div>
         <div className="rounded-lg bg-muted p-8 text-center text-muted-foreground">
-          No hay barberos disponibles en este momento.
+          {t("booking.barber.empty" as any)}
         </div>
         <div className="flex gap-3 pt-4">
           <Button variant="outline" size="lg" onClick={onBack} className="flex-1">
             <ArrowLeft className="mr-2 h-5 w-5" />
-            Atrás
+            {t("common.back" as any)}
           </Button>
         </div>
       </div>
@@ -60,10 +62,10 @@ export function BarberSelection({
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl font-bold text-foreground">
-          Elige tu barbero
+          {t("booking.barber.title" as any)}
         </h1>
         <p className="mt-1 text-muted-foreground">
-          O deja que te asignemos el primero disponible
+          {t("booking.barber.subtitle" as any)}
         </p>
       </div>
 
@@ -101,7 +103,7 @@ export function BarberSelection({
                 </h3>
                 {barber.id === "any" && (
                   <p className="text-sm text-muted-foreground">
-                    Reserva más rápida disponible
+                    {t("booking.barber.fastest" as any)}
                   </p>
                 )}
               </div>
@@ -126,7 +128,7 @@ export function BarberSelection({
       <div className="flex gap-3 pt-4">
         <Button variant="outline" size="lg" onClick={onBack} className="flex-1">
           <ArrowLeft className="mr-2 h-5 w-5" />
-          Atrás
+          {t("common.back" as any)}
         </Button>
         <Button
           variant="hero"
@@ -135,7 +137,7 @@ export function BarberSelection({
           disabled={!selectedBarber}
           className="flex-1"
         >
-          Continuar
+          {t("common.continue" as any)}
           <ArrowRight className="ml-2 h-5 w-5" />
         </Button>
       </div>

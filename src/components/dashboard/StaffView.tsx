@@ -15,6 +15,7 @@ import { StaffFormDialog } from "./StaffFormDialog";
 import { StaffAvailabilityDialog } from "./StaffAvailabilityDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUserData } from "@/hooks/useUserData";
+import { useI18n } from "@/i18n";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +32,7 @@ export function StaffView() {
   const toggleActive = useToggleStaffActive();
   const deleteStaff = useDeleteStaff();
   const { isOwner } = useUserData();
+  const { t } = useI18n();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<StaffProfile | null>(null);
   const [availabilityStaff, setAvailabilityStaff] = useState<StaffProfile | null>(null);
@@ -76,13 +78,13 @@ export function StaffView() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold text-foreground">
-            Barberos
+            {t("staff.title" as any)}
           </h1>
-          <p className="text-muted-foreground">Gestiona tu equipo</p>
+          <p className="text-muted-foreground">{t("staff.subtitle" as any)}</p>
         </div>
         <Button onClick={() => setIsFormOpen(true)} className="gap-2">
           <Plus className="h-4 w-4" />
-          Nuevo
+          {t("staff.new" as any)}
         </Button>
       </div>
 
@@ -109,14 +111,14 @@ export function StaffView() {
               <User className="h-8 w-8 text-muted-foreground" />
             </div>
             <h3 className="mt-4 font-display font-semibold">
-              Sin barberos aún
+              {t("staff.emptyTitle" as any)}
             </h3>
             <p className="mt-1 text-center text-sm text-muted-foreground">
-              Añade a tu primer barbero para empezar
+              {t("staff.emptySubtitle" as any)}
             </p>
             <Button onClick={() => setIsFormOpen(true)} className="mt-4 gap-2">
               <Plus className="h-4 w-4" />
-              Añadir barbero
+              {t("staff.add" as any)}
             </Button>
           </CardContent>
         </Card>
@@ -144,7 +146,7 @@ export function StaffView() {
           {inactiveStaff.length > 0 && (
             <div className="space-y-3">
               <p className="text-sm font-medium text-muted-foreground">
-                Inactivos
+                {t("staff.inactive" as any)}
               </p>
               {inactiveStaff.map((member) => (
                 <StaffCard
@@ -181,18 +183,21 @@ export function StaffView() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar barbero?</AlertDialogTitle>
+            <AlertDialogTitle>{t("staff.deleteDialog.title" as any)}</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. El barbero "{deletingStaff?.display_name}" será eliminado permanentemente.
+              {t("staff.deleteDialog.description" as any).replace(
+                "{name}",
+                deletingStaff?.display_name || "",
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("staff.actions.cancel" as any)}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Eliminar
+              {t("staff.actions.delete" as any)}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -218,6 +223,7 @@ function StaffCard({
   getInitials: (name: string) => string;
   canDelete: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <Card className={!member.is_active ? "opacity-60" : undefined}>
       <CardContent className="p-4">
@@ -239,13 +245,13 @@ function StaffCard({
               </h3>
               {!member.is_active && (
                 <Badge variant="secondary" className="shrink-0">
-                  Inactivo
+                  {t("staff.inactiveBadge" as any)}
                 </Badge>
               )}
             </div>
             {member.commission_rate && (
               <p className="text-sm text-muted-foreground">
-                Comisión: {member.commission_rate}%
+                {t("staff.commission" as any).replace("{rate}", String(member.commission_rate))}
               </p>
             )}
           </div>
@@ -256,7 +262,7 @@ function StaffCard({
               size="icon"
               onClick={() => onEditAvailability(member)}
               className="h-9 w-9"
-              title="Disponibilidad"
+              title={t("staff.actions.availability" as any)}
             >
               <Calendar className="h-4 w-4" />
             </Button>
@@ -265,7 +271,7 @@ function StaffCard({
               size="icon"
               onClick={() => onEdit(member)}
               className="h-9 w-9"
-              title="Editar"
+              title={t("staff.actions.edit" as any)}
             >
               <Pencil className="h-4 w-4" />
             </Button>
@@ -275,7 +281,7 @@ function StaffCard({
                 size="icon"
                 onClick={() => onDelete(member)}
                 className="h-9 w-9 text-destructive hover:text-destructive"
-                title="Eliminar"
+                title={t("staff.actions.delete" as any)}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>

@@ -37,7 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { es, enUS } from "date-fns/locale";
 import { useAppointments, useDeleteAppointment } from "@/hooks/useAppointments";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -59,20 +59,22 @@ import {
 
 type AppointmentStatus = "pending" | "confirmed" | "completed" | "canceled" | "no_show" | "rescheduled";
 
-const statusConfig: Record<AppointmentStatus, { label: string; variant: "pending" | "confirmed" | "completed" | "canceled" }> = {
-  pending: { label: "Pendiente", variant: "pending" },
-  confirmed: { label: "Confirmada", variant: "confirmed" },
-  completed: { label: "Completada", variant: "completed" },
-  canceled: { label: "Cancelada", variant: "canceled" },
-  no_show: { label: "No asistió", variant: "canceled" },
-  rescheduled: { label: "Reprogramada", variant: "pending" },
-};
-
 export function AppointmentsList() {
   const [searchQuery, setSearchQuery] = useState("");
   const { data: appointments, isLoading } = useAppointments();
   const { barbershop, isOwner } = useUserData();
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
+  const statusConfig: Record<
+    AppointmentStatus,
+    { label: string; variant: "pending" | "confirmed" | "completed" | "canceled" }
+  > = {
+    pending: { label: t("appointments.status.pending" as any), variant: "pending" },
+    confirmed: { label: t("appointments.status.confirmed" as any), variant: "confirmed" },
+    completed: { label: t("appointments.status.completed" as any), variant: "completed" },
+    canceled: { label: t("appointments.status.canceled" as any), variant: "canceled" },
+    no_show: { label: t("appointments.status.noShow" as any), variant: "canceled" },
+    rescheduled: { label: t("appointments.status.rescheduled" as any), variant: "pending" },
+  };
   const queryClient = useQueryClient();
   const deleteAppointment = useDeleteAppointment();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -101,10 +103,14 @@ export function AppointmentsList() {
       queryClient.invalidateQueries({ queryKey: ["appointment-stats"] });
       queryClient.invalidateQueries({ queryKey: ["reports"] });
 
-      toast.success(status === "completed" ? "Cita marcada como completada" : "Cita cancelada");
+      toast.success(
+        status === "completed"
+          ? t("appointments.toast.completed" as any)
+          : t("appointments.toast.canceled" as any),
+      );
     } catch (error) {
       console.error("Error updating appointment:", error);
-      toast.error("Error al actualizar la cita");
+      toast.error(t("appointments.toast.updateError" as any));
     }
   };
 
@@ -119,7 +125,7 @@ export function AppointmentsList() {
 
     const amount = parseFloat(paymentAmount);
     if (isNaN(amount) || amount <= 0) {
-      toast.error("Ingresa un monto válido");
+      toast.error(t("appointments.toast.invalidAmount" as any));
       return;
     }
 
@@ -141,13 +147,13 @@ export function AppointmentsList() {
       queryClient.invalidateQueries({ queryKey: ["appointment-stats"] });
       queryClient.invalidateQueries({ queryKey: ["reports"] });
 
-      toast.success("Pago registrado correctamente");
+      toast.success(t("appointments.toast.paymentRecorded" as any));
       setPaymentDialogOpen(false);
       setSelectedAppointment(null);
       setPaymentAmount("");
     } catch (error) {
       console.error("Error updating payment:", error);
-      toast.error("Error al registrar el pago");
+      toast.error(t("appointments.toast.paymentError" as any));
     }
   };
 
@@ -161,9 +167,9 @@ export function AppointmentsList() {
     <div className="space-y-4">
       <div>
         <h1 className="font-display text-2xl font-bold text-foreground">
-          Citas
+          {t("appointments.title" as any)}
         </h1>
-        <p className="text-muted-foreground">Gestiona todas las citas</p>
+        <p className="text-muted-foreground">{t("appointments.subtitle" as any)}</p>
       </div>
 
       {/* Search and filters */}
@@ -171,7 +177,7 @@ export function AppointmentsList() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Buscar por cliente o servicio..."
+            placeholder={t("appointments.searchPlaceholder" as any)}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -192,7 +198,7 @@ export function AppointmentsList() {
           </>
         ) : filteredAppointments.length === 0 ? (
           <div className="py-12 text-center text-muted-foreground">
-            {searchQuery ? "No se encontraron citas" : "No hay citas registradas"}
+            {searchQuery ? t("appointments.emptySearch" as any) : t("appointments.empty" as any)}
           </div>
         ) : (
           filteredAppointments.map((apt) => (
@@ -222,19 +228,19 @@ export function AppointmentsList() {
                           {apt.status === "completed" && apt.payment_status === "unpaid" && (
                             <DropdownMenuItem onClick={() => handleMarkAsPaid(apt.id, apt.total_price_estimated)}>
                               <DollarSign className="mr-2 h-4 w-4 text-success" />
-                              Marcar como pagado
+                              {t("appointments.actions.markPaid" as any)}
                             </DropdownMenuItem>
                           )}
                           {apt.status !== "completed" && (
                             <DropdownMenuItem onClick={() => updateAppointmentStatus(apt.id, "completed")}>
                               <CheckCircle className="mr-2 h-4 w-4 text-success" />
-                              Marcar completada
+                              {t("appointments.actions.markCompleted" as any)}
                             </DropdownMenuItem>
                           )}
                           {apt.status !== "canceled" && (
                             <DropdownMenuItem onClick={() => updateAppointmentStatus(apt.id, "canceled")}>
                               <XCircle className="mr-2 h-4 w-4 text-destructive" />
-                              Cancelar cita
+                              {t("appointments.actions.cancel" as any)}
                             </DropdownMenuItem>
                           )}
                           {isOwner && (
@@ -243,7 +249,7 @@ export function AppointmentsList() {
                               className="text-destructive focus:text-destructive"
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
-                              Eliminar cita
+                              {t("appointments.actions.delete" as any)}
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>
@@ -252,13 +258,13 @@ export function AppointmentsList() {
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        {format(new Date(apt.start_at), "d MMM", { locale: es })}
+                        {format(new Date(apt.start_at), "d MMM", { locale: lang === "en" ? enUS : es })}
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         {format(new Date(apt.start_at), "HH:mm")}
                       </span>
-                      <span>• {apt.staff?.display_name || "Sin asignar"}</span>
+                      <span>• {apt.staff?.display_name || t("appointments.unassigned" as any)}</span>
                       <span className="font-medium text-foreground">
                         {formatCurrency(apt.total_price_estimated, barbershop?.currency || "USD", lang)}
                       </span>
@@ -269,7 +275,9 @@ export function AppointmentsList() {
                       </Badge>
                       {apt.status === "completed" && (
                         <Badge variant={apt.payment_status === "paid" ? "completed" : "pending"}>
-                          {apt.payment_status === "paid" ? "Pagado" : "Pendiente de pago"}
+                          {apt.payment_status === "paid"
+                            ? t("appointments.payment.paid" as any)
+                            : t("appointments.payment.pending" as any)}
                         </Badge>
                       )}
                     </div>
@@ -285,14 +293,14 @@ export function AppointmentsList() {
       <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Registrar Pago</DialogTitle>
+            <DialogTitle>{t("appointments.paymentDialog.title" as any)}</DialogTitle>
             <DialogDescription>
-              Marca esta cita como pagada y registra el método de pago.
+              {t("appointments.paymentDialog.description" as any)}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="amount">Monto</Label>
+              <Label htmlFor="amount">{t("appointments.paymentDialog.amount" as any)}</Label>
               <Input
                 id="amount"
                 type="number"
@@ -300,28 +308,28 @@ export function AppointmentsList() {
                 min="0"
                 value={paymentAmount}
                 onChange={(e) => setPaymentAmount(e.target.value)}
-                placeholder="0.00"
+                placeholder={t("appointments.paymentDialog.amountPlaceholder" as any)}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="method">Método de pago</Label>
+              <Label htmlFor="method">{t("appointments.paymentDialog.method" as any)}</Label>
               <Select value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as "cash" | "card" | "other")}>
                 <SelectTrigger id="method">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cash">Efectivo</SelectItem>
-                  <SelectItem value="card">Tarjeta</SelectItem>
-                  <SelectItem value="other">Otro</SelectItem>
+                  <SelectItem value="cash">{t("appointments.paymentDialog.methodCash" as any)}</SelectItem>
+                  <SelectItem value="card">{t("appointments.paymentDialog.methodCard" as any)}</SelectItem>
+                  <SelectItem value="other">{t("appointments.paymentDialog.methodOther" as any)}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="flex justify-end gap-2 pt-4">
               <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
-                Cancelar
+                {t("appointments.actions.cancel" as any)}
               </Button>
               <Button onClick={confirmPayment}>
-                Confirmar Pago
+                {t("appointments.paymentDialog.confirm" as any)}
               </Button>
             </div>
           </div>
@@ -334,18 +342,21 @@ export function AppointmentsList() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar cita?</AlertDialogTitle>
+            <AlertDialogTitle>{t("appointments.deleteDialog.title" as any)}</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. La cita de "{deletingAppointment?.clientName}" será eliminada permanentemente.
+              {t("appointments.deleteDialog.description" as any).replace(
+                "{client}",
+                deletingAppointment?.clientName || "",
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t("appointments.actions.cancel" as any)}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Eliminar
+              {t("appointments.actions.delete" as any)}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

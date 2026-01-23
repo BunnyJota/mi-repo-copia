@@ -22,13 +22,12 @@ import {
   AlertCircle
 } from "lucide-react";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 
 export function ReportsView() {
   const { barbershop } = useUserData();
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   const [period, setPeriod] = useState<ReportPeriod>("month");
   const [customStart, setCustomStart] = useState<Date | undefined>();
   const [customEnd, setCustomEnd] = useState<Date | undefined>();
@@ -60,7 +59,7 @@ export function ReportsView() {
       <div className="space-y-4">
         <Card>
           <CardContent className="p-6">
-            <p className="text-muted-foreground">Configura tu barbería para ver reportes.</p>
+            <p className="text-muted-foreground">{t("reports.setupRequired" as any)}</p>
           </CardContent>
         </Card>
       </div>
@@ -72,22 +71,26 @@ export function ReportsView() {
       {/* Header with period selector and export buttons */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="font-display text-2xl font-bold text-foreground">Reportes y Analytics</h2>
-          <p className="text-sm text-muted-foreground">Analiza el rendimiento de tu barbería</p>
+          <h2 className="font-display text-2xl font-bold text-foreground">
+            {t("reports.title" as any)}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {t("reports.subtitle" as any)}
+          </p>
         </div>
         
         <div className="flex flex-wrap gap-2">
           <Select value={period} onValueChange={(value) => setPeriod(value as ReportPeriod)}>
             <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Seleccionar período" />
+              <SelectValue placeholder={t("reports.period.placeholder" as any)} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="today">Hoy</SelectItem>
-              <SelectItem value="week">Esta semana</SelectItem>
-              <SelectItem value="month">Este mes</SelectItem>
-              <SelectItem value="lastMonth">Mes pasado</SelectItem>
-              <SelectItem value="year">Este año</SelectItem>
-              <SelectItem value="custom">Personalizado</SelectItem>
+              <SelectItem value="today">{t("reports.period.today" as any)}</SelectItem>
+              <SelectItem value="week">{t("reports.period.week" as any)}</SelectItem>
+              <SelectItem value="month">{t("reports.period.month" as any)}</SelectItem>
+              <SelectItem value="lastMonth">{t("reports.period.lastMonth" as any)}</SelectItem>
+              <SelectItem value="year">{t("reports.period.year" as any)}</SelectItem>
+              <SelectItem value="custom">{t("reports.period.custom" as any)}</SelectItem>
             </SelectContent>
           </Select>
 
@@ -97,7 +100,9 @@ export function ReportsView() {
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-[140px] justify-start text-left font-normal">
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {customStart ? format(customStart, "dd/MM/yyyy") : "Desde"}
+                    {customStart
+                      ? format(customStart, "dd/MM/yyyy")
+                      : t("reports.period.from" as any)}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
@@ -117,7 +122,7 @@ export function ReportsView() {
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-[140px] justify-start text-left font-normal">
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {customEnd ? format(customEnd, "dd/MM/yyyy") : "Hasta"}
+                    {customEnd ? format(customEnd, "dd/MM/yyyy") : t("reports.period.to" as any)}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
@@ -144,7 +149,7 @@ export function ReportsView() {
                 disabled={isLoading}
               >
                 <FileDown className="mr-2 h-4 w-4" />
-                Resumen PDF
+                {t("reports.export.summary" as any)}
               </Button>
               <Button
                 variant="outline"
@@ -153,7 +158,7 @@ export function ReportsView() {
                 disabled={isLoading}
               >
                 <FileDown className="mr-2 h-4 w-4" />
-                Completo PDF
+                {t("reports.export.detailed" as any)}
               </Button>
             </div>
           )}
@@ -189,7 +194,9 @@ export function ReportsView() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Total Citas</p>
+                    <p className="text-sm text-muted-foreground">
+                      {t("reports.summary.totalAppointments" as any)}
+                    </p>
                     <p className="mt-1 text-2xl font-bold">{reportData.summary.totalAppointments}</p>
                   </div>
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
@@ -203,7 +210,9 @@ export function ReportsView() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Completadas</p>
+                    <p className="text-sm text-muted-foreground">
+                      {t("reports.summary.completed" as any)}
+                    </p>
                     <p className="mt-1 text-2xl font-bold">{reportData.summary.completedAppointments}</p>
                   </div>
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-success/10">
@@ -217,7 +226,9 @@ export function ReportsView() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Ingresos Totales</p>
+                    <p className="text-sm text-muted-foreground">
+                      {t("reports.summary.totalRevenue" as any)}
+                    </p>
                     <p className="mt-1 text-2xl font-bold">{formatCurrency(reportData.summary.totalRevenue, barbershop?.currency || "USD", lang)}</p>
                   </div>
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
@@ -231,7 +242,9 @@ export function ReportsView() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Canceladas</p>
+                    <p className="text-sm text-muted-foreground">
+                      {t("reports.summary.canceled" as any)}
+                    </p>
                     <p className="mt-1 text-2xl font-bold">{reportData.summary.canceledAppointments}</p>
                   </div>
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10">
@@ -248,18 +261,22 @@ export function ReportsView() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5" />
-                  Ingresos
+                  {t("reports.revenue.title" as any)}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Pagados</span>
+                  <span className="text-sm text-muted-foreground">
+                    {t("reports.revenue.paid" as any)}
+                  </span>
                   <span className="font-semibold text-success">
                     {formatCurrency(reportData.summary.paidRevenue, barbershop?.currency || "USD", lang)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Pendientes</span>
+                  <span className="text-sm text-muted-foreground">
+                    {t("reports.revenue.pending" as any)}
+                  </span>
                   <span className="font-semibold text-warning">
                     {formatCurrency(reportData.summary.unpaidRevenue, barbershop?.currency || "USD", lang)}
                   </span>
@@ -271,24 +288,24 @@ export function ReportsView() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <AlertCircle className="h-5 w-5" />
-                  Estado de Citas
+                  {t("reports.status.title" as any)}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Badge variant="outline">Pendientes</Badge>
+                  <Badge variant="outline">{t("reports.status.pending" as any)}</Badge>
                   <span className="font-semibold">{reportData.byStatus.pending}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <Badge variant="outline">Confirmadas</Badge>
+                  <Badge variant="outline">{t("reports.status.confirmed" as any)}</Badge>
                   <span className="font-semibold">{reportData.byStatus.confirmed}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <Badge variant="outline">Completadas</Badge>
+                  <Badge variant="outline">{t("reports.status.completed" as any)}</Badge>
                   <span className="font-semibold">{reportData.byStatus.completed}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <Badge variant="outline">No Presentados</Badge>
+                  <Badge variant="outline">{t("reports.status.noShow" as any)}</Badge>
                   <span className="font-semibold">{reportData.byStatus.no_show}</span>
                 </div>
               </CardContent>
@@ -301,7 +318,7 @@ export function ReportsView() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5" />
-                  Rendimiento por Barbero
+                  {t("reports.staff.title" as any)}
                 </CardTitle>
                 <Button
                   variant="outline"
@@ -309,7 +326,7 @@ export function ReportsView() {
                   onClick={() => handleExportPDF("staff")}
                 >
                   <FileDown className="mr-2 h-4 w-4" />
-                  Exportar
+                  {t("reports.export.button" as any)}
                 </Button>
               </CardHeader>
               <CardContent>
@@ -319,14 +336,20 @@ export function ReportsView() {
                       <div className="flex-1">
                         <p className="font-semibold">{staff.staffName}</p>
                         <p className="text-sm text-muted-foreground">
-                          {staff.appointmentCount} citas
+                          {t("reports.staff.appointments" as any).replace(
+                            "{count}",
+                            String(staff.appointmentCount),
+                          )}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="font-semibold">{formatCurrency(staff.revenue, barbershop?.currency || "USD", lang)}</p>
                         {staff.commission !== undefined && (
                           <p className="text-xs text-muted-foreground">
-                            Comisión: {formatCurrency(staff.commission, barbershop?.currency || "USD", lang)}
+                            {t("reports.staff.commission" as any).replace(
+                              "{amount}",
+                              formatCurrency(staff.commission, barbershop?.currency || "USD", lang),
+                            )}
                           </p>
                         )}
                       </div>
@@ -343,7 +366,7 @@ export function ReportsView() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <Scissors className="h-5 w-5" />
-                  Rendimiento por Servicio
+                  {t("reports.services.title" as any)}
                 </CardTitle>
                 <Button
                   variant="outline"
@@ -351,7 +374,7 @@ export function ReportsView() {
                   onClick={() => handleExportPDF("services")}
                 >
                   <FileDown className="mr-2 h-4 w-4" />
-                  Exportar
+                  {t("reports.export.button" as any)}
                 </Button>
               </CardHeader>
               <CardContent>
@@ -361,7 +384,10 @@ export function ReportsView() {
                       <div className="flex-1">
                         <p className="font-semibold">{service.serviceName}</p>
                         <p className="text-sm text-muted-foreground">
-                          {service.appointmentCount} veces
+                          {t("reports.services.usage" as any).replace(
+                            "{count}",
+                            String(service.appointmentCount),
+                          )}
                         </p>
                       </div>
                       <div className="text-right">
@@ -379,9 +405,11 @@ export function ReportsView() {
             <Card>
               <CardContent className="p-12 text-center">
                 <Clock className="mx-auto h-12 w-12 text-muted-foreground" />
-                <p className="mt-4 text-lg font-semibold">No hay datos para este período</p>
+                <p className="mt-4 text-lg font-semibold">
+                  {t("reports.empty.title" as any)}
+                </p>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Selecciona otro período o espera a que se generen citas.
+                  {t("reports.empty.subtitle" as any)}
                 </p>
               </CardContent>
             </Card>
@@ -390,7 +418,7 @@ export function ReportsView() {
       ) : (
         <Card>
           <CardContent className="p-6">
-            <p className="text-muted-foreground">No se pudieron cargar los reportes.</p>
+            <p className="text-muted-foreground">{t("reports.error" as any)}</p>
           </CardContent>
         </Card>
       )}

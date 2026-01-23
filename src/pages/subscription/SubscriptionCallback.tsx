@@ -6,6 +6,7 @@ import { Logo } from "@/components/layout/Logo";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { useActivateSubscription } from "@/hooks/useSubscription";
 import { useUserData } from "@/hooks/useUserData";
+import { useI18n } from "@/i18n";
 
 type CallbackStatus = "loading" | "success" | "error";
 
@@ -14,6 +15,7 @@ const SubscriptionCallback = () => {
   const navigate = useNavigate();
   const activateSubscription = useActivateSubscription();
   const { loading: userDataLoading } = useUserData();
+  const { t } = useI18n();
   const [status, setStatus] = useState<CallbackStatus>("loading");
   const [message, setMessage] = useState("");
   const [hasProcessed, setHasProcessed] = useState(false);
@@ -52,8 +54,7 @@ const SubscriptionCallback = () => {
       if (!idToUse) {
         setStatus("error");
         setMessage(
-          "No se recibió información de la suscripción de PayPal. " +
-          "Por favor verifica que completaste el proceso de aprobación en PayPal."
+          t("subscription.callback.missingInfo" as any)
         );
         return;
       }
@@ -65,7 +66,7 @@ const SubscriptionCallback = () => {
         await activateSubscription.mutateAsync(idToUse);
         
         setStatus("success");
-        setMessage("¡Suscripción activada exitosamente!");
+        setMessage(t("subscription.callback.successMessage" as any));
         
         // Redirigir después de 2 segundos
         setTimeout(() => {
@@ -76,7 +77,7 @@ const SubscriptionCallback = () => {
         setStatus("error");
         
         // Mejorar mensajes de error
-        let errorMessage = "Error al activar la suscripción";
+        let errorMessage = t("subscription.callback.errorDefault" as any);
         
         if (error?.message) {
           errorMessage = error.message;
@@ -88,13 +89,13 @@ const SubscriptionCallback = () => {
 
         // Mensajes más descriptivos según el tipo de error
         if (errorMessage.includes("No barbershop found") || errorMessage.includes("barbería")) {
-          errorMessage = "No se encontró la barbería asociada. Por favor contacta al soporte.";
+          errorMessage = t("subscription.callback.errorNoBarbershop" as any);
         } else if (errorMessage.includes("Unauthorized") || errorMessage.includes("autenticado")) {
-          errorMessage = "Sesión expirada. Por favor inicia sesión nuevamente.";
+          errorMessage = t("subscription.callback.errorUnauthorized" as any);
         } else if (errorMessage.includes("permisos") || errorMessage.includes("owner")) {
-          errorMessage = "No tienes permisos para activar esta suscripción. Se requiere ser propietario de la barbería.";
+          errorMessage = t("subscription.callback.errorPermission" as any);
         } else if (errorMessage.includes("PayPal") || errorMessage.includes("paypal")) {
-          errorMessage = `Error al comunicarse con PayPal: ${errorMessage}`;
+          errorMessage = t("subscription.callback.errorPaypal" as any).replace("{detail}", errorMessage);
         }
 
         setMessage(errorMessage);
@@ -111,10 +112,10 @@ const SubscriptionCallback = () => {
           <div className="flex flex-col items-center gap-4 text-center">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
             <h1 className="font-display text-2xl font-bold text-foreground">
-              Procesando suscripción...
+              {t("subscription.callback.loadingTitle" as any)}
             </h1>
             <p className="text-muted-foreground">
-              Por favor espera mientras activamos tu suscripción
+              {t("subscription.callback.loadingSubtitle" as any)}
             </p>
           </div>
         );
@@ -126,7 +127,7 @@ const SubscriptionCallback = () => {
               <CheckCircle className="h-10 w-10 text-success" />
             </div>
             <h1 className="font-display text-2xl font-bold text-foreground">
-              ¡Suscripción activada!
+              {t("subscription.callback.successTitle" as any)}
             </h1>
             <p className="text-muted-foreground">{message}</p>
           </div>
@@ -139,7 +140,7 @@ const SubscriptionCallback = () => {
               <XCircle className="h-10 w-10 text-destructive" />
             </div>
             <h1 className="font-display text-2xl font-bold text-foreground">
-              Error al activar suscripción
+              {t("subscription.callback.errorTitle" as any)}
             </h1>
             <p className="text-muted-foreground">{message}</p>
           </div>
@@ -169,7 +170,7 @@ const SubscriptionCallback = () => {
                   variant="default"
                   onClick={() => navigate("/dashboard?tab=settings")}
                 >
-                  Ir a configuración
+                  {t("subscription.callback.goSettings" as any)}
                 </Button>
               </div>
             )}
