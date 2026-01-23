@@ -55,10 +55,14 @@ export function SettingsView({ onTabChange }: SettingsViewProps) {
   }, []);
 
   useEffect(() => {
-    const pendingOpen = sessionStorage.getItem("open-barbershop-dialog");
-    if (pendingOpen) {
-      sessionStorage.removeItem("open-barbershop-dialog");
-      setBarbershopDialogOpen(true);
+    try {
+      const pendingOpen = sessionStorage.getItem("open-barbershop-dialog");
+      if (pendingOpen) {
+        sessionStorage.removeItem("open-barbershop-dialog");
+        setBarbershopDialogOpen(true);
+      }
+    } catch (error) {
+      console.warn("Session storage unavailable in SettingsView", error);
     }
   }, []);
 
